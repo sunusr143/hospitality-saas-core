@@ -1,5 +1,7 @@
-// File Name: users.service.ts
-// Path: backend/src/modules/users/users.service.ts
+/*
+File Name: users.service.ts
+Path: src/modules/users/users.service.ts
+*/
 
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +23,9 @@ export class UsersService {
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
 
+  /**
+   * Create a new user (ADMIN only via controller RBAC)
+   */
   async createUser(dto: CreateUserDto): Promise<User> {
     const tenant = await this.tenantRepository.findOne({
       where: { code: dto.tenantCode },
@@ -44,6 +49,9 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 
+  /**
+   * Fetch users (optionally filtered by tenant)
+   */
   async findAll(query?: FindUsersDto): Promise<User[]> {
     const where = query?.tenantCode
       ? { tenant: { code: query.tenantCode } }
@@ -56,6 +64,9 @@ export class UsersService {
     });
   }
 
+  /**
+   * Used by AuthService during login
+   */
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },

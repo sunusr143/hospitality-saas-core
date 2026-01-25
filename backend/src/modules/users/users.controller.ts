@@ -1,23 +1,36 @@
-// File Name: users.controller.ts
-// Path: backend/src/modules/users/users.controller.ts
+/*
+File Name: users.controller.ts
+Path: src/modules/users/users.controller.ts
+*/
 
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
-import { FindUsersDto } from './dto/find-users.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { UserRole } from './enums/user-role.enum';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  async create(@Body() dto: CreateUserDto): Promise<User> {
-    return this.usersService.createUser(dto);
+  @Roles(UserRole.ADMIN)
+  async create(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.createUser(createUserDto);
   }
 
   @Get()
-  async findAll(@Query() query: FindUsersDto): Promise<User[]> {
-    return this.usersService.findAll(query);
+  @Roles(UserRole.ADMIN)
+  async findAll() {
+    return this.usersService.findAll();
   }
 }
