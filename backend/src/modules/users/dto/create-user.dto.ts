@@ -15,6 +15,11 @@ export class CreateUserDto {
   email: string;
 
   @IsNotEmpty()
+  @IsString()
+  @Length(8, 64)
+  password: string; // ✅ ADD THIS
+
+  @IsNotEmpty()
   @IsEnum(UserRole)
   role: UserRole;
 

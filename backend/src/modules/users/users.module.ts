@@ -3,6 +3,7 @@
 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './user.entity';
@@ -12,5 +13,6 @@ import { Tenant } from '../tenants/tenant.entity';
   imports: [TypeOrmModule.forFeature([User, Tenant])],
   controllers: [UsersController],
   providers: [UsersService],
+  exports: [UsersService], // 👈 THIS IS THE FIX
 })
 export class UsersModule {}

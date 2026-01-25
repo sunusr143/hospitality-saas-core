@@ -12,12 +12,12 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() dto: CreateUserDto): Promise<User> {
+  async create(@Body() dto: CreateUserDto): Promise<User> {
     return this.usersService.createUser(dto);
   }
 
   @Get()
-  findAll(@Query() query: FindUsersDto): Promise<User[]> {
+  async findAll(@Query() query: FindUsersDto): Promise<User[]> {
     return this.usersService.findAll(query);
   }
 }

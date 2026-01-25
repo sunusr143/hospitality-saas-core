@@ -1,9 +1,11 @@
 // File Name: users.service.ts
 // Path: backend/src/modules/users/users.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+
 import { User } from './user.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,18 +23,22 @@ export class UsersService {
 
   async createUser(dto: CreateUserDto): Promise<User> {
     const tenant = await this.tenantRepository.findOne({
-      where: { code: dto.tenantCode, isActive: true },
+      where: { code: dto.tenantCode },
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found or inactive');
+      throw new BadRequestException('Invalid tenant');
     }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
 
     const user = this.userRepository.create({
       fullName: dto.fullName,
       email: dto.email,
+      password: hashedPassword,
       role: dto.role,
       tenant,
+      isActive: true,
     });
 
     return this.userRepository.save(user);
@@ -47,6 +53,13 @@ export class UsersService {
       where,
       relations: ['tenant'],
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { email },
+      relations: ['tenant'],
     });
   }
 }
