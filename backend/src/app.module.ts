@@ -9,7 +9,7 @@ import { AppService } from './app.service';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
-
+import { RoomsModule } from './modules/rooms/rooms.module';
 
 
 @Module({
@@ -21,7 +21,9 @@ import { AuthModule } from './modules/auth/auth.module';
     DatabaseModule,
     TenantsModule,
     UsersModule,
-    AuthModule
+    AuthModule,
+    RoomsModule,
+
 
   ],
   controllers: [AppController],
