@@ -24,8 +24,9 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Exclude()
+ 
   @Column()
+  @Exclude()
   password: string;
 
   @Column({ type: 'enum', enum: UserRole })
@@ -42,4 +43,6 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+
 }

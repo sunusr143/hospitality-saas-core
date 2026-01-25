@@ -8,6 +8,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
+
 
 
 @Module({
@@ -19,6 +21,7 @@ import { UsersModule } from './modules/users/users.module';
     DatabaseModule,
     TenantsModule,
     UsersModule,
+    AuthModule
 
   ],
   controllers: [AppController],
