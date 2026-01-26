@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
 import { RatePlansModule } from './modules/rate-plans/rate-plans.module';
+import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
 
 
 @Module({
@@ -27,6 +28,7 @@ import { RatePlansModule } from './modules/rate-plans/rate-plans.module';
     RoomsModule,
     ReservationsModule,
     RatePlansModule,
+    HousekeepingModule,
 
 
   ],
