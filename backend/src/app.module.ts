@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
+import { RatePlansModule } from './modules/rate-plans/rate-plans.module';
 
 
 @Module({
@@ -25,6 +26,7 @@ import { ReservationsModule } from './modules/reservations/reservations.module';
     AuthModule,
     RoomsModule,
     ReservationsModule,
+    RatePlansModule,
 
 
   ],
