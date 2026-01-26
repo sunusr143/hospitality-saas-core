@@ -10,6 +10,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
+import { ReservationsModule } from './modules/reservations/reservations.module';
 
 
 @Module({
@@ -23,6 +24,7 @@ import { RoomsModule } from './modules/rooms/rooms.module';
     UsersModule,
     AuthModule,
     RoomsModule,
+    ReservationsModule,
 
 
   ],
