@@ -13,6 +13,7 @@ import { RoomsModule } from './modules/rooms/rooms.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
 import { RatePlansModule } from './modules/rate-plans/rate-plans.module';
 import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 
 @Module({
@@ -29,6 +30,7 @@ import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
     ReservationsModule,
     RatePlansModule,
     HousekeepingModule,
+    BillingModule,
 
 
   ],

@@ -1,0 +1,12 @@
+/*
+File Name: folio-line-item-type.enum.ts
+Path: src/modules/billing/enums/folio-line-item-type.enum.ts
+*/
+
+export enum FolioLineItemType {
+  ROOM_CHARGE = 'ROOM_CHARGE',
+  SERVICE_CHARGE = 'SERVICE_CHARGE',
+  MINIBAR = 'MINIBAR',
+  ADJUSTMENT = 'ADJUSTMENT',
+  DISCOUNT = 'DISCOUNT',
+}
