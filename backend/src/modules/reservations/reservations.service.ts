@@ -19,6 +19,7 @@ import { Room } from '../rooms/room.entity';
 import { User } from '../users/user.entity';
 import { RoomStatus } from '../rooms/enums/room-status.enum';
 import { UserRole } from '../users/enums/user-role.enum';
+import { FoliosService } from '../billing/services/folios.service';
 
 @Injectable()
 export class ReservationsService {
@@ -35,6 +36,8 @@ export class ReservationsService {
     private readonly userRepository: Repository<User>,
 
     private readonly dataSource: DataSource,
+
+    private readonly foliosService: FoliosService,
   ) {}
 
   /**
@@ -196,6 +199,18 @@ export class ReservationsService {
         await manager.save(reservation.room);
       }
     });
+
+    if (newStatus === ReservationStatus.CHECKED_OUT) {
+      await this.foliosService.addRoomNightCharge({
+        tenantId,
+        reservation,
+      });
+
+      await this.foliosService.closeFolioSystemByReservation(
+        tenantId,
+        reservation.id,
+      );
+    }
 
     this.logger.log(
       `Reservation ${reservation.id} moved to ${newStatus} by ADMIN ${user.userId}`,

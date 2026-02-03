@@ -23,6 +23,8 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 
 import { UserRole } from '../../users/enums/user-role.enum';
 import { AddLineItemDto } from '../dto/add-line-item.dto';
+import { AddPaymentDto } from '../dto/add-payment.dto';
+import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 
 @Controller('folios')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -79,6 +81,24 @@ export class FoliosController {
   }
 
   /**
+   * ADMIN + STAFF — post a payment
+   */
+  @Post(':folioId/payments')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async addPayment(
+    @Param('folioId', ParseUUIDPipe) folioId: string,
+    @Body() dto: AddPaymentDto,
+    @Request() req,
+  ) {
+    return this.foliosService.addPayment({
+      tenantId: req.user.tenantId,
+      folioId,
+      dto,
+      user: req.user,
+    });
+  }
+
+  /**
    * ADMIN only
    */
   @Patch(':folioId/close')
@@ -91,6 +111,76 @@ export class FoliosController {
       req.user.tenantId,
       folioId,
       req.user,
+    );
+  }
+
+  /**
+   * ADMIN + STAFF — generate invoice (GST optional)
+   */
+  @Post(':folioId/invoice')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async generateInvoice(
+    @Param('folioId', ParseUUIDPipe) folioId: string,
+    @Body() dto: CreateInvoiceDto,
+    @Request() req,
+  ) {
+    return this.foliosService.generateInvoiceForFolio({
+      tenantId: req.user.tenantId,
+      folioId,
+      dto,
+      user: req.user,
+    });
+  }
+
+  /**
+   * ADMIN + STAFF — fetch invoice
+   */
+  @Get(':folioId/invoice')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async getInvoice(
+    @Param('folioId', ParseUUIDPipe) folioId: string,
+    @Request() req,
+  ) {
+    return this.foliosService.getInvoiceForFolio(
+      req.user.tenantId,
+      folioId,
+    );
+  }
+
+  /**
+   * ADMIN + STAFF — invoice PDF (stub)
+   */
+  @Get(':folioId/invoice/pdf')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async getInvoicePdf(
+    @Param('folioId', ParseUUIDPipe) folioId: string,
+    @Request() req,
+  ) {
+    const pdfBuffer = await this.foliosService.getInvoicePdfStub(
+      req.user.tenantId,
+      folioId,
+    );
+
+    return {
+      contentType: 'application/pdf',
+      filename: `invoice-${folioId}.pdf`,
+      data: pdfBuffer.toString('base64'),
+      note: 'PDF stub only; replace with real PDF generator.',
+    };
+  }
+
+  /**
+   * ADMIN + STAFF — folio balance summary
+   */
+  @Get(':folioId/summary')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async getSummary(
+    @Param('folioId', ParseUUIDPipe) folioId: string,
+    @Request() req,
+  ) {
+    return this.foliosService.getFolioSummary(
+      req.user.tenantId,
+      folioId,
     );
   }
 }

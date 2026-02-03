@@ -1,19 +1,26 @@
 // File Name: rate-plans.service.ts
 // Path: src/modules/rate-plans/rate-plans.service.ts
 
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { RatePlan } from './entities/rate-plan.entity';
 import { CreateRatePlanDto } from './dto/create-rate-plan.dto';
 import { UpdateRatePlanDto } from './dto/update-rate-plan.dto';
 import { Tenant } from '../tenants/tenant.entity';
+import { RatePlanStatus } from './enums/rate-plan-status.enum';
 
 @Injectable()
 export class RatePlansService {
   constructor(
     @InjectRepository(RatePlan)
     private readonly ratePlanRepository: Repository<RatePlan>,
+
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
@@ -77,4 +84,31 @@ export class RatePlansService {
 
     return this.ratePlanRepository.save(ratePlan);
   }
+
+  /* ======================================================
+     >>> REQUIRED BY BILLING (ROOM-NIGHT AUTO CHARGE)
+     ====================================================== */
+  async findLatestActiveForTenant(tenantId: string): Promise<RatePlan> {
+    const ratePlan = await this.ratePlanRepository.findOne({
+      where: {
+        tenant: { id: tenantId },
+        status: RatePlanStatus.ACTIVE,
+      },
+      order: {
+        validFrom: 'DESC',
+        createdAt: 'DESC',
+      },
+    });
+
+    if (!ratePlan) {
+      throw new NotFoundException(
+        'No active rate plan found for tenant',
+      );
+    }
+
+    return ratePlan;
+  }
 }
+
+/* >>> Explicit export (defensive, optional) */
+

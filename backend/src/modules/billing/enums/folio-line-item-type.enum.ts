@@ -9,4 +9,6 @@ export enum FolioLineItemType {
   MINIBAR = 'MINIBAR',
   ADJUSTMENT = 'ADJUSTMENT',
   DISCOUNT = 'DISCOUNT',
+  PAYMENT = 'PAYMENT',
+  TAX_GST = 'TAX_GST',
 }

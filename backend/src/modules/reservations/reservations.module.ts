@@ -12,6 +12,7 @@ import { ReservationsController } from './reservations.controller';
 import { Reservation } from './reservation.entity';
 import { Room } from '../rooms/room.entity';
 import { User } from '../users/user.entity';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { User } from '../users/user.entity';
       Room,
       User,
     ]),
+    BillingModule,
   ],
   controllers: [ReservationsController],
   providers: [ReservationsService],

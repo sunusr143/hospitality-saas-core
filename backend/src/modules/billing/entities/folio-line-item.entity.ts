@@ -16,9 +16,11 @@ import { Tenant } from '../../tenants/tenant.entity';
 import { Folio } from './folio.entity';
 import { User } from '../../users/user.entity';
 import { FolioLineItemType } from '../enums/folio-line-item-type.enum';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 @Entity('folio_line_items')
 @Index(['tenant', 'folio'])
+@Index(['folio', 'paymentReference'], { unique: true })
 export class FolioLineItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -49,6 +51,16 @@ export class FolioLineItem {
 
   @Column({ type: 'uuid', nullable: true })
   relatedEntityId: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentMethod,
+    nullable: true,
+  })
+  paymentMethod: PaymentMethod | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  paymentReference: string | null;
 
   @ManyToOne(() => Tenant, { nullable: false, onDelete: 'RESTRICT' })
   tenant: Tenant;
