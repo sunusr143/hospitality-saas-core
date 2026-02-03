@@ -52,7 +52,7 @@ export class Invoice {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: 'jsonb', nullable: true, default: () => "'[]'::jsonb" })
   lineItemsSnapshot: Array<{
     id: string;
     type: string;

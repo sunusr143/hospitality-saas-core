@@ -20,7 +20,18 @@ import { PaymentMethod } from '../enums/payment-method.enum';
 
 @Entity('folio_line_items')
 @Index(['tenant', 'folio'])
-@Index(['folio', 'paymentReference'], { unique: true })
+@Index(['folio', 'paymentReference'], {
+  unique: true,
+  where: '"paymentReference" IS NOT NULL AND "type" = \'PAYMENT\'',
+})
+@Index(['folio', 'type'], {
+  unique: true,
+  where: '"type" = \'ROOM_CHARGE\'',
+})
+@Index(['folio', 'type'], {
+  unique: true,
+  where: '"type" = \'TAX_GST\'',
+})
 export class FolioLineItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

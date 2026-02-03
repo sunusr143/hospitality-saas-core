@@ -29,6 +29,7 @@ import { AddPaymentDto } from '../dto/add-payment.dto';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { InvoiceStatus } from '../enums/invoice-status.enum';
 import { BillingSettingsService } from './billing-settings.service';
+import { AuditLogsService } from '../../audit-logs/audit-logs.service';
 
 /* >>> USED FOR ROOM-NIGHT AUTO CHARGE */
 import { RatePlansService } from '../../rate-plans/rate-plans.service';
@@ -58,6 +59,7 @@ export class FoliosService {
 
     private readonly ratePlansService: RatePlansService,
     private readonly billingSettingsService: BillingSettingsService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   /**
@@ -114,6 +116,18 @@ export class FoliosService {
 
     this.logger.log(`Folio created for reservation ${reservation.id}`);
 
+    await this.auditLogsService.log({
+      tenantId,
+      actorId: creator?.id,
+      action: 'FOLIO_CREATED',
+      entityType: 'FOLIO',
+      entityId: folio.id,
+      metadata: {
+        reservationId: reservation.id,
+        roomId: reservation.room?.id,
+      },
+    });
+
     return this.folioRepository.save(folio);
   }
 
@@ -161,6 +175,12 @@ export class FoliosService {
       throw new ForbiddenException('Only ADMIN can add adjustments or discounts');
     }
 
+    if (
+      [FolioLineItemType.PAYMENT, FolioLineItemType.TAX_GST].includes(dto.type)
+    ) {
+      throw new BadRequestException('Use the dedicated endpoints for payments or taxes');
+    }
+
     const poster = await this.userRepository.findOne({
       where: { id: user.userId },
     });
@@ -181,7 +201,22 @@ export class FoliosService {
       postedBy: poster ?? null,
     });
 
-    return this.lineItemRepository.save(lineItem);
+    const saved = await this.lineItemRepository.save(lineItem);
+
+    await this.auditLogsService.log({
+      tenantId,
+      actorId: poster?.id,
+      action: 'FOLIO_LINE_ITEM_ADDED',
+      entityType: 'FOLIO_LINE_ITEM',
+      entityId: saved.id,
+      metadata: {
+        folioId: folio.id,
+        type: saved.type,
+        amount: saved.totalAmount,
+      },
+    });
+
+    return saved;
   }
 
   async closeFolio(
@@ -209,7 +244,17 @@ export class FoliosService {
     folio.status = FolioStatus.CLOSED;
     folio.closedAt = new Date();
 
-    return this.folioRepository.save(folio);
+    const saved = await this.folioRepository.save(folio);
+
+    await this.auditLogsService.log({
+      tenantId,
+      actorId: user.userId,
+      action: 'FOLIO_CLOSED',
+      entityType: 'FOLIO',
+      entityId: folio.id,
+    });
+
+    return saved;
   }
 
   async closeFolioSystemByReservation(tenantId: string, reservationId: string) {
@@ -232,6 +277,13 @@ export class FoliosService {
     folio.closedAt = new Date();
 
     await this.folioRepository.save(folio);
+
+    await this.auditLogsService.log({
+      tenantId,
+      action: 'FOLIO_CLOSED_SYSTEM',
+      entityType: 'FOLIO',
+      entityId: folio.id,
+    });
   }
 
   /* ======================================================
@@ -294,7 +346,32 @@ export class FoliosService {
       postedBy: null, // SYSTEM
     });
 
-    await this.lineItemRepository.save(lineItem);
+    let saved: FolioLineItem | null = null;
+    try {
+      await this.lineItemRepository.save(lineItem);
+      saved = lineItem;
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        // Unique constraint hit (already added by another concurrent call)
+        return;
+      }
+      throw error;
+    }
+
+    if (saved) {
+      await this.auditLogsService.log({
+        tenantId,
+        action: 'ROOM_NIGHT_CHARGE_POSTED',
+        entityType: 'FOLIO_LINE_ITEM',
+        entityId: saved.id,
+        metadata: {
+          folioId: folio.id,
+          reservationId: reservation.id,
+          nights,
+          unitPrice: ratePlan.basePrice,
+        },
+      });
+    }
   }
 
   async addPayment(params: {
@@ -353,7 +430,30 @@ export class FoliosService {
       paymentReference: dto.reference ?? null,
     });
 
-    return this.lineItemRepository.save(lineItem);
+    try {
+      const saved = await this.lineItemRepository.save(lineItem);
+
+      await this.auditLogsService.log({
+        tenantId,
+        actorId: poster?.id,
+        action: 'PAYMENT_POSTED',
+        entityType: 'FOLIO_LINE_ITEM',
+        entityId: saved.id,
+        metadata: {
+          folioId: folio.id,
+          amount: saved.totalAmount,
+          method: dto.method,
+          reference: dto.reference ?? null,
+        },
+      });
+
+      return saved;
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new ConflictException('Duplicate payment reference');
+      }
+      throw error;
+    }
   }
 
   async getInvoiceForFolio(tenantId: string, folioId: string) {
@@ -500,7 +600,15 @@ export class FoliosService {
           postedBy: null,
         });
 
-        await this.lineItemRepository.save(taxLineItem);
+        try {
+          await this.lineItemRepository.save(taxLineItem);
+        } catch (error: any) {
+          if (error?.code === '23505') {
+            // Another concurrent invoice generation already added GST
+          } else {
+            throw error;
+          }
+        }
       }
     }
 
@@ -530,7 +638,22 @@ export class FoliosService {
       issuedAt: new Date(),
     });
 
-    return this.invoiceRepository.save(invoice);
+    const saved = await this.invoiceRepository.save(invoice);
+
+    await this.auditLogsService.log({
+      tenantId,
+      actorId: params.user.userId,
+      action: 'INVOICE_ISSUED',
+      entityType: 'INVOICE',
+      entityId: saved.id,
+      metadata: {
+        folioId: folio.id,
+        invoiceNumber: saved.invoiceNumber,
+        total: saved.total,
+      },
+    });
+
+    return saved;
   }
 
   async getInvoicePdfStub(tenantId: string, folioId: string) {

@@ -14,6 +14,8 @@ import { ReservationsModule } from './modules/reservations/reservations.module';
 import { RatePlansModule } from './modules/rate-plans/rate-plans.module';
 import { HousekeepingModule } from './modules/housekeeping/housekeeping.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 
 @Module({
@@ -31,6 +33,8 @@ import { BillingModule } from './modules/billing/billing.module';
     RatePlansModule,
     HousekeepingModule,
     BillingModule,
+    ReportsModule,
+    AuditLogsModule,
 
 
   ],

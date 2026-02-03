@@ -1,0 +1,14 @@
+metric,value
+from,2026-02-01
+to,2026-02-05
+roomCount,1
+availableRoomNights,4
+occupiedNights,8
+occupancyRate,2
+adr,137.5
+revPar,275
+roomRevenue,1100
+netRevenue,1100
+tax,132
+grossRevenue,1232
+payments,-500
