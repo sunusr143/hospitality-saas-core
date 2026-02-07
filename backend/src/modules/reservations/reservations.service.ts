@@ -17,9 +17,11 @@ import { Repository, DataSource } from 'typeorm';
 import { Reservation, ReservationStatus } from './reservation.entity';
 import { Room } from '../rooms/room.entity';
 import { User } from '../users/user.entity';
+import { Guest } from '../guests/guest.entity';
 import { RoomStatus } from '../rooms/enums/room-status.enum';
 import { UserRole } from '../users/enums/user-role.enum';
 import { FoliosService } from '../billing/services/folios.service';
+import { CreateReservationDto } from './dto/create-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
@@ -35,6 +37,9 @@ export class ReservationsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
 
+    @InjectRepository(Guest)
+    private readonly guestRepository: Repository<Guest>,
+
     private readonly dataSource: DataSource,
 
     private readonly foliosService: FoliosService,
@@ -45,21 +50,13 @@ export class ReservationsService {
    */
   async createReservation(params: {
     tenantId: string;
-    roomId: string;
     user: { userId: string; role: UserRole };
-    guestName: string;
-    guestEmail: string;
-    checkInDate: string;
-    checkOutDate: string;
+    dto: CreateReservationDto;
   }): Promise<Reservation> {
     const {
       tenantId,
-      roomId,
       user,
-      guestName,
-      guestEmail,
-      checkInDate,
-      checkOutDate,
+      dto,
     } = params;
 
     /**
@@ -67,7 +64,7 @@ export class ReservationsService {
      */
     const room = await this.roomRepository.findOne({
       where: {
-        id: roomId,
+        id: dto.roomId,
         tenant: { id: tenantId },
       },
       relations: ['tenant'],
@@ -98,7 +95,7 @@ export class ReservationsService {
     const overlappingReservation = await this.reservationRepository
       .createQueryBuilder('reservation')
       .innerJoin('reservation.room', 'room')
-      .where('room.id = :roomId', { roomId })
+      .where('room.id = :roomId', { roomId: dto.roomId })
       .andWhere('reservation.status IN (:...activeStatuses)', {
         activeStatuses: [
           ReservationStatus.PENDING,
@@ -111,7 +108,7 @@ export class ReservationsService {
         daterange(reservation."checkInDate", reservation."checkOutDate", '[]')
         && daterange(:checkInDate, :checkOutDate, '[]')
         `,
-        { checkInDate, checkOutDate },
+        { checkInDate: dto.checkInDate, checkOutDate: dto.checkOutDate },
       )
       .getOne();
 
@@ -124,15 +121,49 @@ export class ReservationsService {
     /**
      * Create reservation
      */
+    let guest: Guest | null = null;
+    if (dto.guestId) {
+      guest = await this.guestRepository.findOne({
+        where: { id: dto.guestId, tenant: { id: tenantId } },
+      });
+
+      if (!guest) {
+        throw new NotFoundException('Guest not found');
+      }
+    } else if (dto.guestEmail) {
+      guest = await this.guestRepository.findOne({
+        where: { email: dto.guestEmail, tenant: { id: tenantId } },
+      });
+    }
+
+    const fallbackName = dto.guestFullName ?? dto.guestName;
+    if (!guest && !fallbackName) {
+      throw new BadRequestException('guestFullName is required without guestId');
+    }
+
+    if (!guest && dto.guestEmail) {
+      guest = this.guestRepository.create({
+        tenant: room.tenant,
+        createdBy: creator,
+        fullName: fallbackName!,
+        email: dto.guestEmail,
+        phone: dto.guestPhone ?? null,
+        isActive: true,
+      });
+
+      guest = await this.guestRepository.save(guest);
+    }
+
     const reservation = this.reservationRepository.create({
-      guestName,
-      guestEmail,
-      checkInDate,
-      checkOutDate,
+      guestName: guest ? guest.fullName : fallbackName!,
+      guestEmail: guest ? guest.email : dto.guestEmail ?? '',
+      checkInDate: dto.checkInDate,
+      checkOutDate: dto.checkOutDate,
       status: ReservationStatus.PENDING,
       tenant: room.tenant,
       room,
       createdBy: creator,
+      guest,
     });
 
     this.logger.log(
@@ -148,7 +179,7 @@ export class ReservationsService {
   async findAllForTenant(tenantId: string): Promise<Reservation[]> {
     return this.reservationRepository.find({
       where: { tenant: { id: tenantId } },
-      relations: ['room', 'createdBy'],
+      relations: ['room', 'createdBy', 'guest'],
       order: { checkInDate: 'ASC' },
     });
   }

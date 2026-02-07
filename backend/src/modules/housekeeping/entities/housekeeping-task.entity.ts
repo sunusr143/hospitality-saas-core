@@ -46,6 +46,9 @@ export class HousekeepingTask {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  dueAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

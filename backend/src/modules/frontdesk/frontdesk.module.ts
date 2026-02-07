@@ -1,0 +1,32 @@
+// File Name: frontdesk.module.ts
+// Path: src/modules/frontdesk/frontdesk.module.ts
+
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import { FrontdeskService } from './frontdesk.service';
+import { FrontdeskController } from './frontdesk.controller';
+import { Reservation } from '../reservations/reservation.entity';
+import { Room } from '../rooms/room.entity';
+import { User } from '../users/user.entity';
+import { Guest } from '../guests/guest.entity';
+import { Tenant } from '../tenants/tenant.entity';
+import { GuestDocument } from './entities/guest-document.entity';
+import { Deposit } from './entities/deposit.entity';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Reservation,
+      Room,
+      User,
+      Guest,
+      Tenant,
+      GuestDocument,
+      Deposit,
+    ]),
+  ],
+  controllers: [FrontdeskController],
+  providers: [FrontdeskService],
+})
+export class FrontdeskModule {}

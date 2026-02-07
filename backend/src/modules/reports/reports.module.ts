@@ -18,5 +18,6 @@ import { FolioLineItem } from '../billing/entities/folio-line-item.entity';
   ],
   controllers: [ReportsController],
   providers: [ReportsService],
+  exports: [ReportsService],
 })
 export class ReportsModule {}

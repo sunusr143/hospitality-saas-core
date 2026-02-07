@@ -8,12 +8,14 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { HousekeepingService } from './housekeeping.service';
 import { CreateHousekeepingTaskDto } from './dto/create-housekeeping-task.dto';
 import { UpdateHousekeepingStatusDto } from './dto/update-housekeeping-status.dto';
+import { AssignHousekeepingDto } from './dto/assign-housekeeping.dto';
+import { CreateInspectionDto } from './dto/create-inspection.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -26,17 +28,14 @@ export class HousekeepingController {
 
   @Post()
   @Roles(UserRole.ADMIN)
-  create(
-    @Query('tenantCode') tenantCode: string,
-    @Body() dto: CreateHousekeepingTaskDto,
-  ) {
-    return this.housekeepingService.create(tenantCode, dto);
+  create(@Body() dto: CreateHousekeepingTaskDto, @Request() req) {
+    return this.housekeepingService.create(req.user.tenantId, dto);
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  findAll(@Query('tenantCode') tenantCode: string) {
-    return this.housekeepingService.findAll(tenantCode);
+  findAll(@Request() req) {
+    return this.housekeepingService.findAll(req.user.tenantId);
   }
 
   @Patch(':id/status')
@@ -46,5 +45,35 @@ export class HousekeepingController {
     @Body() dto: UpdateHousekeepingStatusDto,
   ) {
     return this.housekeepingService.updateStatus(id, dto);
+  }
+
+  @Patch(':id/assign')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  assignTask(
+    @Param('id') id: string,
+    @Body() dto: AssignHousekeepingDto,
+    @Request() req,
+  ) {
+    return this.housekeepingService.assignTask(
+      req.user.tenantId,
+      id,
+      dto,
+    );
+  }
+
+  @Post('inspections')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  createInspection(@Body() dto: CreateInspectionDto, @Request() req) {
+    return this.housekeepingService.createInspection(
+      req.user.tenantId,
+      dto,
+      req.user.userId,
+    );
+  }
+
+  @Get('inspections')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  listInspections(@Request() req) {
+    return this.housekeepingService.listInspections(req.user.tenantId);
   }
 }

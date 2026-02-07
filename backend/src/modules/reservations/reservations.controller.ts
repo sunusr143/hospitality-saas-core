@@ -15,6 +15,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
+import { CreateReservationDto } from './dto/create-reservation.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -36,20 +37,10 @@ export class ReservationsController {
    */
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  async create(@Body() body: {
-    roomId: string;
-    guestName: string;
-    guestEmail: string;
-    checkInDate: string;
-    checkOutDate: string;
-  }, @Request() req) {
+  async create(@Body() dto: CreateReservationDto, @Request() req) {
     return this.reservationsService.createReservation({
       tenantId: req.user.tenantId,
-      roomId: body.roomId,
-      guestName: body.guestName,
-      guestEmail: body.guestEmail,
-      checkInDate: body.checkInDate,
-      checkOutDate: body.checkOutDate,
+      dto,
       user: req.user,
     });
   }

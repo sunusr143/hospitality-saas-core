@@ -16,6 +16,7 @@ import {
 import { Tenant } from '../tenants/tenant.entity';
 import { Room } from '../rooms/room.entity';
 import { User } from '../users/user.entity';
+import { Guest } from '../guests/guest.entity';
 
 export enum ReservationStatus {
   PENDING = 'PENDING',
@@ -70,6 +71,13 @@ export class Reservation {
    */
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   createdBy: User;
+
+  /**
+   * Optional link to guest profile
+   */
+  @ManyToOne(() => Guest, { nullable: true, onDelete: 'SET NULL' })
+  @Index()
+  guest: Guest | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

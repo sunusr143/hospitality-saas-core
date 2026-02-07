@@ -4,6 +4,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -17,8 +18,12 @@ import { ConfigService } from '@nestjs/config';
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: config.get<boolean>('DB_SYNCHRONIZE'),
+        // Avoid TypeORM enum sync issues in production; use migrations instead.
+        synchronize: false,
         logging: config.get<boolean>('DB_LOGGING'),
+        migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
+        migrationsRun: config.get<boolean>('DB_MIGRATIONS_RUN') ?? true,
+        migrationsTableName: 'migrations',
       }),
     }),
   ],
