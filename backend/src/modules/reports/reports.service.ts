@@ -121,7 +121,7 @@ export class ReportsService {
         FROM days d
         LEFT JOIN reservations r
           ON r."tenantId" = (SELECT id FROM tenants WHERE code = $3)
-         AND r.status IN ('PENDING','CONFIRMED','CHECKED_IN','CHECKED_OUT')
+         AND r.status IN ('CONFIRMED','CHECKED_IN','CHECKED_OUT')
         GROUP BY d.day
       )
       SELECT day, occupied
@@ -244,7 +244,6 @@ export class ReportsService {
       .where('tenant.code = :tenantCode', { tenantCode })
       .andWhere('r.status IN (:...statuses)', {
         statuses: [
-          ReservationStatus.PENDING,
           ReservationStatus.CONFIRMED,
           ReservationStatus.CHECKED_IN,
           ReservationStatus.CHECKED_OUT,

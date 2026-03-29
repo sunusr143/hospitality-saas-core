@@ -11,6 +11,7 @@ import { User } from '../users/user.entity';
 import { Guest } from '../guests/guest.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { RoomStatus } from '../rooms/enums/room-status.enum';
+import { FoliosService } from '../billing/services/folios.service';
 
 import { GuestDocument } from './entities/guest-document.entity';
 import { Deposit } from './entities/deposit.entity';
@@ -43,6 +44,8 @@ export class FrontdeskService {
 
     @InjectRepository(Deposit)
     private readonly depositRepository: Repository<Deposit>,
+
+    private readonly foliosService: FoliosService,
   ) {}
 
   async checkIn(params: { tenantId: string; dto: CheckinDto; user: { userId: string } }) {
@@ -68,7 +71,7 @@ export class FrontdeskService {
     return reservation;
   }
 
-  async checkOut(params: { tenantId: string; dto: CheckoutDto }) {
+  async checkOut(params: { tenantId: string; dto: CheckoutDto; user: { userId: string } }) {
     const { tenantId, dto } = params;
 
     const reservation = await this.reservationRepository.findOne({
@@ -87,6 +90,15 @@ export class FrontdeskService {
 
     reservation.room.status = RoomStatus.AVAILABLE;
     await this.roomRepository.save(reservation.room);
+
+    await this.foliosService.addRoomNightCharge({
+      tenantId,
+      reservation,
+    });
+    await this.foliosService.closeFolioSystemByReservation(
+      tenantId,
+      reservation.id,
+    );
 
     return reservation;
   }

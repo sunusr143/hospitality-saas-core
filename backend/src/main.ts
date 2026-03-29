@@ -8,8 +8,46 @@ import compression from 'compression';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
+function parseCorsOrigins(value: string | undefined): true | string[] {
+  if (!value || value === '*') {
+    return true;
+  }
+
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+function validateCriticalConfig(): void {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const jwtSecret = process.env.JWT_SECRET;
+  const corsOrigins = process.env.CORS_ORIGINS;
+  const dbMigrationsRun = (process.env.DB_MIGRATIONS_RUN ?? 'true').toLowerCase() === 'true';
+
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET is required');
+  }
+
+  if (nodeEnv === 'production') {
+    if (jwtSecret === 'super-secret-access-token' || jwtSecret.length < 24) {
+      throw new Error('JWT_SECRET is too weak for production');
+    }
+
+    if (!corsOrigins || corsOrigins === '*' || corsOrigins.trim().length === 0) {
+      throw new Error('CORS_ORIGINS must be explicitly set in production');
+    }
+
+    if (!dbMigrationsRun) {
+      throw new Error('DB_MIGRATIONS_RUN must be true in production');
+    }
+  }
+}
+
 async function bootstrap(): Promise<void> {
+  validateCriticalConfig();
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
 
   // 🔐 MUST come BEFORE routes are hit
   app.useGlobalInterceptors(
@@ -20,7 +58,7 @@ async function bootstrap(): Promise<void> {
   app.use(compression());
 
   app.enableCors({
-    origin: true,
+    origin: parseCorsOrigins(process.env.CORS_ORIGINS),
     credentials: true,
   });
 

@@ -1,0 +1,5 @@
+category,item_code,item_name,price,tax_rate,currency,description,is_active
+Breakfast,BF001,Masala Omelette,220,5,INR,Two egg masala omelette,true
+Breakfast,BF002,Fresh Lime Soda,140,5,INR,Sweet or salted,true
+Main Course,MC010,Paneer Butter Masala,420,5,INR,North Indian curry,true
+Desserts,DS005,Gulab Jamun,160,5,INR,Two pieces,true

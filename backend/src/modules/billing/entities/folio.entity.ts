@@ -56,10 +56,10 @@ export class Folio {
   lineItems: FolioLineItem[];
 
   @Column({ type: 'timestamptz', nullable: true })
-  openedAt: Date;
+  openedAt: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  closedAt: Date;
+  closedAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

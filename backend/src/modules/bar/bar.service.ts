@@ -16,6 +16,7 @@ import { BarCategory } from './entities/bar-category.entity';
 import { BarItem } from './entities/bar-item.entity';
 import { BarOrder } from './entities/bar-order.entity';
 import { BarOrderItem } from './entities/bar-order-item.entity';
+import { BarOrderEvent } from './entities/bar-order-event.entity';
 import { BarOrderStatus } from './enums/bar-order-status.enum';
 
 import { CreateBarCategoryDto } from './dto/create-bar-category.dto';
@@ -27,6 +28,7 @@ import { CancelBarOrderDto } from './dto/cancel-bar-order.dto';
 import { SeedBarDto } from './dto/seed-bar.dto';
 import { FindBarOrdersDto } from './dto/find-bar-orders.dto';
 import { FindBarItemsDto } from './dto/find-bar-items.dto';
+import { UpdateBarOrderDto } from './dto/update-bar-order.dto';
 
 import { Tenant } from '../tenants/tenant.entity';
 import { User } from '../users/user.entity';
@@ -34,6 +36,8 @@ import { Folio } from '../billing/entities/folio.entity';
 import { FolioLineItem } from '../billing/entities/folio-line-item.entity';
 import { FolioLineItemType } from '../billing/enums/folio-line-item-type.enum';
 import { FolioStatus } from '../billing/enums/folio-status.enum';
+import { AccountingService } from '../accounting/accounting.service';
+import { LedgerEntryType } from '../accounting/enums/ledger-entry-type.enum';
 
 @Injectable()
 export class BarService {
@@ -50,6 +54,9 @@ export class BarService {
     @InjectRepository(BarOrderItem)
     private readonly orderItemRepository: Repository<BarOrderItem>,
 
+    @InjectRepository(BarOrderEvent)
+    private readonly orderEventRepository: Repository<BarOrderEvent>,
+
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
 
@@ -63,6 +70,7 @@ export class BarService {
     private readonly folioLineItemRepository: Repository<FolioLineItem>,
 
     private readonly dataSource: DataSource,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async createCategory(tenantId: string, dto: CreateBarCategoryDto) {
@@ -316,6 +324,15 @@ export class BarService {
       });
 
       const savedOrder = await manager.getRepository(BarOrder).save(order);
+      await manager.getRepository(BarOrderEvent).save(
+        manager.getRepository(BarOrderEvent).create({
+          tenant: { id: tenantId } as Tenant,
+          order: savedOrder,
+          actor: creator,
+          eventType: 'CREATED',
+          notes: `Order created with ${dto.items.length} items.`,
+        }),
+      );
 
       const orderItems = dto.items.map((orderItem) => {
         const item = itemMap.get(orderItem.itemId)!;
@@ -358,7 +375,17 @@ export class BarService {
 
         savedOrder.status = BarOrderStatus.POSTED;
         savedOrder.postedAt = new Date();
+        savedOrder.lastActionNote = 'Posted directly to folio during order creation.';
         await manager.getRepository(BarOrder).save(savedOrder);
+        await manager.getRepository(BarOrderEvent).save(
+          manager.getRepository(BarOrderEvent).create({
+            tenant: { id: tenantId } as Tenant,
+            order: savedOrder,
+            actor: creator,
+            eventType: 'POSTED',
+            notes: `Posted to folio ${folio.id} during order creation.`,
+          }),
+        );
       }
 
       return savedOrder;
@@ -405,7 +432,129 @@ export class BarService {
       relations: ['item'],
     });
 
-    return { order, items };
+    const events = await this.orderEventRepository.find({
+      where: { tenant: { id: tenantId }, order: { id: orderId } },
+      relations: ['actor'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return { order, items, events };
+  }
+
+  async updateOrder(params: {
+    tenantId: string;
+    orderId: string;
+    dto: UpdateBarOrderDto;
+  }) {
+    const { tenantId, orderId, dto } = params;
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, tenant: { id: tenantId } },
+      relations: ['tenant', 'folio'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status !== BarOrderStatus.OPEN) {
+      throw new BadRequestException('Only open orders can be updated. Cancel and recreate posted orders.');
+    }
+
+    let folio: Folio | null = null;
+    if (dto.folioId) {
+      folio = await this.folioRepository.findOne({
+        where: { id: dto.folioId, tenant: { id: tenantId } },
+        relations: ['tenant'],
+      });
+
+      if (!folio) {
+        throw new NotFoundException('Folio not found');
+      }
+
+      if (folio.status === FolioStatus.CLOSED) {
+        throw new BadRequestException('Cannot attach a closed folio');
+      }
+    }
+
+    const itemIds = dto.items.map((item) => item.itemId);
+    const uniqueItemIds = Array.from(new Set(itemIds));
+    const items = await this.itemRepository.find({
+      where: { id: In(uniqueItemIds) },
+      relations: ['tenant'],
+    });
+
+    if (items.length !== uniqueItemIds.length) {
+      throw new BadRequestException('One or more items not found');
+    }
+
+    const itemMap = new Map(items.map((item) => [item.id, item]));
+
+    for (const item of items) {
+      if (item.tenant.id !== tenantId) {
+        throw new BadRequestException('Invalid item for tenant');
+      }
+
+      if (!item.isActive) {
+        throw new BadRequestException(`Item ${item.name} is inactive`);
+      }
+    }
+
+    const currency = dto.currency ?? items[0].currency;
+    if (items.some((item) => item.currency !== currency)) {
+      throw new BadRequestException('All items must have same currency');
+    }
+
+    const subtotal = this.roundTo2(
+      dto.items.reduce((sum, orderItem) => {
+        const item = itemMap.get(orderItem.itemId)!;
+        return sum + Number(item.price) * orderItem.quantity;
+      }, 0),
+    );
+    const taxRate = dto.taxRate ?? 0;
+    const taxAmount = this.roundTo2(subtotal * taxRate);
+    const total = this.roundTo2(subtotal + taxAmount);
+
+    return this.dataSource.transaction(async (manager) => {
+      order.folio = folio;
+      order.currency = currency;
+      order.subtotal = subtotal;
+      order.taxRate = taxRate;
+      order.taxAmount = taxAmount;
+      order.total = total;
+      order.lastActionNote = 'Open order updated before posting.';
+
+      const savedOrder = await manager.getRepository(BarOrder).save(order);
+      await manager.getRepository(BarOrderItem).delete({ order: { id: orderId } });
+
+      const orderItems = dto.items.map((orderItem) => {
+        const item = itemMap.get(orderItem.itemId)!;
+        const unitPrice = Number(item.price);
+        const totalAmount = this.roundTo2(unitPrice * orderItem.quantity);
+
+        return manager.getRepository(BarOrderItem).create({
+          order: savedOrder,
+          item,
+          nameSnapshot: item.name,
+          unitPrice,
+          quantity: orderItem.quantity,
+          totalAmount,
+          notes: orderItem.notes ?? null,
+        });
+      });
+
+      await manager.getRepository(BarOrderItem).save(orderItems);
+      await manager.getRepository(BarOrderEvent).save(
+        manager.getRepository(BarOrderEvent).create({
+          tenant: { id: tenantId } as Tenant,
+          order: savedOrder,
+          actor: null,
+          eventType: 'UPDATED',
+          notes: `Order updated to ${dto.items.length} items and total ${total}.`,
+        }),
+      );
+      return savedOrder;
+    });
   }
 
   async postOrderToFolio(params: { tenantId: string; orderId: string; folioId: string }) {
@@ -460,12 +609,33 @@ export class BarService {
       });
 
       await this.folioLineItemRepository.save(lineItem);
+
+      await this.accountingService.recordSystemEntry({
+        tenantId,
+        folioId: folio.id,
+        userId: order.createdBy?.id ?? null,
+        type: LedgerEntryType.CHARGE,
+        amount: Number(order.total),
+        currency: order.currency,
+        reference: `bar-order:${order.id}`,
+      });
     }
 
     order.status = BarOrderStatus.POSTED;
     order.postedAt = new Date();
     order.folio = folio;
-    return this.orderRepository.save(order);
+    order.lastActionNote = `Posted to folio ${folio.id}.`;
+    const saved = await this.orderRepository.save(order);
+    await this.orderEventRepository.save(
+      this.orderEventRepository.create({
+        tenant: { id: tenantId } as Tenant,
+        order: saved,
+        actor: order.createdBy ?? null,
+        eventType: 'POSTED',
+        notes: `Posted to folio ${folio.id}.`,
+      }),
+    );
+    return saved;
   }
 
   async cancelOrder(params: {
@@ -526,7 +696,19 @@ export class BarService {
     }
 
     order.status = BarOrderStatus.CANCELLED;
-    return this.orderRepository.save(order);
+    order.cancellationReason = dto?.reason ?? order.cancellationReason ?? 'Order cancelled';
+    order.lastActionNote = order.cancellationReason;
+    const saved = await this.orderRepository.save(order);
+    await this.orderEventRepository.save(
+      this.orderEventRepository.create({
+        tenant: { id: tenantId } as Tenant,
+        order: saved,
+        actor: order.createdBy ?? null,
+        eventType: 'CANCELLED',
+        notes: order.cancellationReason,
+      }),
+    );
+    return saved;
   }
 
   async seedDefaults(params: { tenantId: string; dto?: SeedBarDto }) {

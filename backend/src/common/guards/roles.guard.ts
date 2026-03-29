@@ -12,6 +12,10 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { UserRole } from '../../modules/users/enums/user-role.enum';
+import { MODULE_ACCESS_KEY } from '../decorators/module-access.decorator';
+import { DEPARTMENT_ACCESS_KEY } from '../decorators/department-access.decorator';
+import { ACTION_ACCESS_KEY } from '../decorators/action-access.decorator';
+import { ACTION_POLICY } from '../permissions/action-policy';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -22,10 +26,18 @@ export class RolesGuard implements CanActivate {
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
-
-    if (!requiredRoles || requiredRoles.length === 0) {
-      return true;
-    }
+    const requiredModule = this.reflector.getAllAndOverride<string>(
+      MODULE_ACCESS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const allowedDepartments = this.reflector.getAllAndOverride<string[]>(
+      DEPARTMENT_ACCESS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const requiredAction = this.reflector.getAllAndOverride<string>(
+      ACTION_ACCESS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
@@ -34,10 +46,45 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    if (requiredRoles && requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
       throw new ForbiddenException(
         'You do not have permission to access this resource',
       );
+    }
+
+    if (requiredModule) {
+      const enabledModules = Array.isArray(user.enabledModules)
+        ? user.enabledModules
+        : [];
+
+      if (!enabledModules.includes(requiredModule)) {
+        throw new ForbiddenException(
+          `The ${requiredModule} module is not enabled for this hotel`,
+        );
+      }
+    }
+
+    if (
+      allowedDepartments &&
+      allowedDepartments.length > 0 &&
+      user.role !== UserRole.ADMIN
+    ) {
+      const department = String(user.department ?? '').toLowerCase();
+      if (!allowedDepartments.includes(department)) {
+        throw new ForbiddenException(
+          'Your department does not have access to this resource',
+        );
+      }
+    }
+
+    if (requiredAction && user.role !== UserRole.ADMIN) {
+      const department = String(user.department ?? '').toLowerCase();
+      const allowedActionDepartments = ACTION_POLICY[requiredAction] ?? [];
+      if (!allowedActionDepartments.includes(department)) {
+        throw new ForbiddenException(
+          'Your department does not have permission for this action',
+        );
+      }
     }
 
     return true;

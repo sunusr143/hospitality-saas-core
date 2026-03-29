@@ -1,7 +1,7 @@
 // File Name: create-stock-item.dto.ts
 // Path: src/modules/procurement/dto/create-stock-item.dto.ts
 
-import { IsInt, IsNotEmpty, IsString, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 
 export class CreateStockItemDto {
   @IsString()
@@ -16,4 +16,18 @@ export class CreateStockItemDto {
   @IsString()
   @MaxLength(40)
   unit: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  unitCost?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  reorderLevel?: number;
+
+  @IsOptional()
+  @IsUUID()
+  supplierId?: string;
 }

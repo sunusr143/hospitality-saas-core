@@ -4,11 +4,12 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
   Post,
-  Query,
+  Request,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -25,30 +26,37 @@ import { UserRole } from '../users/enums/user-role.enum';
 export class RatePlansController {
   constructor(private readonly ratePlansService: RatePlansService) {}
 
-  private requireTenantCode(tenantCode?: string): string {
-    if (!tenantCode) {
-      throw new BadRequestException('tenantCode query parameter is required');
+  private resolveTenantCode(req: any, requestedTenantCode?: string): string {
+    const tokenTenantCode = req.user?.tenantCode;
+
+    if (!tokenTenantCode) {
+      throw new BadRequestException('tenantCode missing in authenticated user');
     }
-    return tenantCode;
+
+    if (requestedTenantCode && requestedTenantCode !== tokenTenantCode) {
+      throw new ForbiddenException('Cross-tenant access denied');
+    }
+
+    return tokenTenantCode;
   }
 
   @Post()
   @Roles(UserRole.ADMIN)
   create(
-    @Query('tenantCode') tenantCode: string | undefined,
+    @Request() req,
     @Body() dto: CreateRatePlanDto,
   ) {
     return this.ratePlansService.create(
-      this.requireTenantCode(tenantCode),
+      this.resolveTenantCode(req),
       dto,
     );
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  findAll(@Query('tenantCode') tenantCode: string | undefined) {
+  findAll(@Request() req) {
     return this.ratePlansService.findAll(
-      this.requireTenantCode(tenantCode),
+      this.resolveTenantCode(req),
     );
   }
 
@@ -56,11 +64,11 @@ export class RatePlansController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   findOne(
     @Param('id') id: string,
-    @Query('tenantCode') tenantCode: string | undefined,
+    @Request() req,
   ) {
     return this.ratePlansService.findOne(
       id,
-      this.requireTenantCode(tenantCode),
+      this.resolveTenantCode(req),
     );
   }
 
@@ -68,12 +76,12 @@ export class RatePlansController {
   @Roles(UserRole.ADMIN)
   update(
     @Param('id') id: string,
-    @Query('tenantCode') tenantCode: string | undefined,
+    @Request() req,
     @Body() dto: UpdateRatePlanDto,
   ) {
     return this.ratePlansService.update(
       id,
-      this.requireTenantCode(tenantCode),
+      this.resolveTenantCode(req),
       dto,
     );
   }

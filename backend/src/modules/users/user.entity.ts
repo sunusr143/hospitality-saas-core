@@ -24,10 +24,27 @@ export class User {
   @Column({ unique: true })
   email: string;
 
- 
   @Column()
   @Exclude()
   password: string;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  phone: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  title: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  department: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  addressLine1: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  photoUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
 
   @Column({ type: 'enum', enum: UserRole })
   role: UserRole;
@@ -43,6 +60,4 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-
 }

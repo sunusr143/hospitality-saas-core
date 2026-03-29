@@ -35,6 +35,7 @@ export class FrontdeskController {
     return this.frontdeskService.checkOut({
       tenantId: req.user.tenantId,
       dto,
+      user: req.user,
     });
   }
 

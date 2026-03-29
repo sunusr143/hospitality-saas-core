@@ -10,8 +10,8 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 
 import { RoomsService } from './rooms.service';
@@ -21,26 +21,33 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('rooms')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('rooms')
+@AllowDepartments('Front Office', 'Reservations', 'Housekeeping', 'Maintenance', 'Administration')
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Post()
   @Roles(UserRole.ADMIN)
-  async create(@Body() dto: CreateRoomDto) {
+  async create(@Body() dto: CreateRoomDto, @Request() req) {
+    dto.tenantCode = req.user.tenantCode;
     return this.roomsService.create(dto);
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  async findAll(@Query('tenantCode') tenantCode?: string) {
-    return this.roomsService.findAll(tenantCode);
+  async findAll(@Request() req) {
+    return this.roomsService.findAll(req.user.tenantCode);
   }
 
   @Patch(':id/status')
   @Roles(UserRole.ADMIN)
+  @RequireAction('rooms.status.update')
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateRoomStatusDto,

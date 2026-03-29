@@ -20,9 +20,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('housekeeping')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('housekeeping')
+@AllowDepartments('Housekeeping', 'Administration')
 export class HousekeepingController {
   constructor(private readonly housekeepingService: HousekeepingService) {}
 
@@ -49,6 +54,7 @@ export class HousekeepingController {
 
   @Patch(':id/assign')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('housekeeping.assign')
   assignTask(
     @Param('id') id: string,
     @Body() dto: AssignHousekeepingDto,
@@ -63,6 +69,7 @@ export class HousekeepingController {
 
   @Post('inspections')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('housekeeping.inspect')
   createInspection(@Body() dto: CreateInspectionDto, @Request() req) {
     return this.housekeepingService.createInspection(
       req.user.tenantId,

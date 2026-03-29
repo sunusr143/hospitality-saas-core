@@ -6,6 +6,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() === 'true';
+  return fallback;
+}
+
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
@@ -20,9 +26,9 @@ import { join } from 'path';
         autoLoadEntities: true,
         // Avoid TypeORM enum sync issues in production; use migrations instead.
         synchronize: false,
-        logging: config.get<boolean>('DB_LOGGING'),
+        logging: asBoolean(config.get('DB_LOGGING'), false),
         migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
-        migrationsRun: config.get<boolean>('DB_MIGRATIONS_RUN') ?? true,
+        migrationsRun: asBoolean(config.get('DB_MIGRATIONS_RUN'), true),
         migrationsTableName: 'migrations',
       }),
     }),

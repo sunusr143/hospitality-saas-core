@@ -30,6 +30,8 @@ import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { InvoiceStatus } from '../enums/invoice-status.enum';
 import { BillingSettingsService } from './billing-settings.service';
 import { AuditLogsService } from '../../audit-logs/audit-logs.service';
+import { AccountingService } from '../../accounting/accounting.service';
+import { LedgerEntryType } from '../../accounting/enums/ledger-entry-type.enum';
 
 /* >>> USED FOR ROOM-NIGHT AUTO CHARGE */
 import { RatePlansService } from '../../rate-plans/rate-plans.service';
@@ -60,6 +62,7 @@ export class FoliosService {
     private readonly ratePlansService: RatePlansService,
     private readonly billingSettingsService: BillingSettingsService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -202,6 +205,26 @@ export class FoliosService {
     });
 
     const saved = await this.lineItemRepository.save(lineItem);
+
+    if (
+      [
+        FolioLineItemType.ROOM_CHARGE,
+        FolioLineItemType.SERVICE_CHARGE,
+        FolioLineItemType.FNB_CHARGE,
+        FolioLineItemType.BAR_CHARGE,
+        FolioLineItemType.MINIBAR,
+      ].includes(saved.type)
+    ) {
+      await this.accountingService.recordSystemEntry({
+        tenantId,
+        folioId: folio.id,
+        userId: poster?.id ?? null,
+        type: LedgerEntryType.CHARGE,
+        amount: Number(saved.totalAmount),
+        currency: saved.currency,
+        reference: saved.id,
+      });
+    }
 
     await this.auditLogsService.log({
       tenantId,
@@ -359,6 +382,15 @@ export class FoliosService {
     }
 
     if (saved) {
+      await this.accountingService.recordSystemEntry({
+        tenantId,
+        folioId: folio.id,
+        type: LedgerEntryType.CHARGE,
+        amount: Number(saved.totalAmount),
+        currency: saved.currency,
+        reference: saved.id,
+      });
+
       await this.auditLogsService.log({
         tenantId,
         action: 'ROOM_NIGHT_CHARGE_POSTED',
@@ -379,8 +411,9 @@ export class FoliosService {
     folioId: string;
     dto: AddPaymentDto;
     user: { userId: string; role: UserRole };
+    idempotencyKey?: string;
   }) {
-    const { tenantId, folioId, dto, user } = params;
+    const { tenantId, folioId, dto, user, idempotencyKey } = params;
 
     const folio = await this.folioRepository.findOne({
       where: { id: folioId, tenant: { id: tenantId } },
@@ -391,21 +424,25 @@ export class FoliosService {
       throw new NotFoundException('Folio not found');
     }
 
-    if (folio.status === FolioStatus.CLOSED) {
-      throw new BadRequestException('Cannot add payments to closed folio');
+    if (idempotencyKey && dto.reference && dto.reference !== idempotencyKey) {
+      throw new BadRequestException(
+        'payment reference and Idempotency-Key must match when both are provided',
+      );
     }
 
-    if (dto.reference) {
+    const effectiveReference = dto.reference ?? idempotencyKey ?? null;
+
+    if (effectiveReference) {
       const existing = await this.lineItemRepository.findOne({
         where: {
           folio: { id: folio.id },
           type: FolioLineItemType.PAYMENT,
-          paymentReference: dto.reference,
+          paymentReference: effectiveReference,
         },
       });
 
       if (existing) {
-        throw new ConflictException('Duplicate payment reference');
+        return existing;
       }
     }
 
@@ -427,11 +464,21 @@ export class FoliosService {
       folio,
       postedBy: poster ?? null,
       paymentMethod: dto.method,
-      paymentReference: dto.reference ?? null,
+      paymentReference: effectiveReference,
     });
 
     try {
       const saved = await this.lineItemRepository.save(lineItem);
+
+      await this.accountingService.recordSystemEntry({
+        tenantId,
+        folioId: folio.id,
+        userId: poster?.id ?? null,
+        type: LedgerEntryType.PAYMENT,
+        amount: Math.abs(Number(saved.totalAmount)),
+        currency: saved.currency,
+        reference: saved.paymentReference ?? saved.id,
+      });
 
       await this.auditLogsService.log({
         tenantId,
@@ -443,13 +490,27 @@ export class FoliosService {
           folioId: folio.id,
           amount: saved.totalAmount,
           method: dto.method,
-          reference: dto.reference ?? null,
+          reference: effectiveReference,
         },
       });
 
       return saved;
     } catch (error: any) {
       if (error?.code === '23505') {
+        if (effectiveReference) {
+          const existing = await this.lineItemRepository.findOne({
+            where: {
+              folio: { id: folio.id },
+              type: FolioLineItemType.PAYMENT,
+              paymentReference: effectiveReference,
+            },
+          });
+
+          if (existing) {
+            return existing;
+          }
+        }
+
         throw new ConflictException('Duplicate payment reference');
       }
       throw error;
@@ -534,6 +595,7 @@ export class FoliosService {
     folioId: string;
     dto: CreateInvoiceDto;
     user: { userId: string; role: UserRole };
+    idempotencyKey?: string;
   }) {
     const { tenantId, folioId, dto } = params;
     const gstRate = Number(

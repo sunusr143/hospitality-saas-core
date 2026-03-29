@@ -24,9 +24,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('maintenance')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('maintenance')
+@AllowDepartments('Maintenance', 'Administration')
 export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
@@ -42,6 +47,7 @@ export class MaintenanceController {
 
   @Patch(':id/assign')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('maintenance.assign')
   async assign(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignMaintenanceDto,

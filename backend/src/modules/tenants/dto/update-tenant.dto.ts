@@ -1,0 +1,64 @@
+import { ArrayNotEmpty, IsArray, IsOptional, IsString, Length } from 'class-validator';
+
+export class UpdateTenantDto {
+  @IsOptional()
+  @IsString()
+  @Length(3, 100)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 120)
+  softwareName?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 160)
+  contactEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(7, 30)
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 160)
+  addressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 3)
+  currencyCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(3, 80)
+  timezone?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 5)
+  checkInTime?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 5)
+  checkOutTime?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  enabledModules?: string[];
+}

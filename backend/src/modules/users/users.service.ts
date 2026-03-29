@@ -3,7 +3,7 @@ File Name: users.service.ts
 Path: src/modules/users/users.service.ts
 */
 
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -41,6 +41,12 @@ export class UsersService {
       fullName: dto.fullName,
       email: dto.email,
       password: hashedPassword,
+      phone: dto.phone ?? null,
+      title: dto.title ?? null,
+      department: dto.department ?? null,
+      addressLine1: dto.addressLine1 ?? null,
+      photoUrl: dto.photoUrl ?? null,
+      notes: dto.notes ?? null,
       role: dto.role,
       tenant,
       isActive: true,
@@ -72,5 +78,43 @@ export class UsersService {
       where: { email },
       relations: ['tenant'],
     });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ['tenant'],
+    });
+  }
+
+  async updateStatus(tenantCode: string, userId: string, isActive: boolean): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, tenant: { code: tenantCode } },
+      relations: ['tenant'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.isActive = isActive;
+    return this.userRepository.save(user);
+  }
+
+  async removeUser(tenantCode: string, userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, tenant: { code: tenantCode } },
+      relations: ['tenant'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'ADMIN' && user.email === 'admin@sunu.com') {
+      throw new BadRequestException('Primary demo admin cannot be deleted');
+    }
+
+    await this.userRepository.remove(user);
   }
 }

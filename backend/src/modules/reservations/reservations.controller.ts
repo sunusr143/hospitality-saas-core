@@ -16,16 +16,21 @@ import {
 } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
+import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 import { UserRole } from '../users/enums/user-role.enum';
 import { ReservationStatus } from './reservation.entity';
 
 @Controller('reservations')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('reservations')
+@AllowDepartments('Front Office', 'Reservations', 'Administration')
 export class ReservationsController {
   constructor(
     private readonly reservationsService: ReservationsService,
@@ -55,6 +60,24 @@ export class ReservationsController {
     return this.reservationsService.findAllForTenant(
       req.user.tenantId,
     );
+  }
+
+  /**
+   * Update reservation details
+   * ADMIN + STAFF
+   */
+  @Patch(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateReservationDto,
+    @Request() req,
+  ) {
+    return this.reservationsService.updateReservation({
+      tenantId: req.user.tenantId,
+      reservationId: id,
+      dto,
+    });
   }
 
   /**

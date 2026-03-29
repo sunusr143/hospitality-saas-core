@@ -12,9 +12,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('front-desk')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('frontdesk')
+@AllowDepartments('Front Office', 'Reservations', 'Administration')
 export class FrontDeskController {
   constructor(private readonly frontDeskService: FrontDeskService) {}
 
@@ -23,6 +28,7 @@ export class FrontDeskController {
    */
   @Post('room-move')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('frontdesk.room-move')
   async moveRoom(@Body() dto: RoomMoveDto, @Request() req) {
     return this.frontDeskService.moveRoom({
       tenantId: req.user.tenantId,

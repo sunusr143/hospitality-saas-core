@@ -12,10 +12,12 @@ import { RestaurantCategory } from './entities/restaurant-category.entity';
 import { RestaurantItem } from './entities/restaurant-item.entity';
 import { RestaurantOrder } from './entities/restaurant-order.entity';
 import { RestaurantOrderItem } from './entities/restaurant-order-item.entity';
+import { RestaurantOrderEvent } from './entities/restaurant-order-event.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { User } from '../users/user.entity';
 import { Folio } from '../billing/entities/folio.entity';
 import { FolioLineItem } from '../billing/entities/folio-line-item.entity';
+import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
@@ -24,11 +26,13 @@ import { FolioLineItem } from '../billing/entities/folio-line-item.entity';
       RestaurantItem,
       RestaurantOrder,
       RestaurantOrderItem,
+      RestaurantOrderEvent,
       Tenant,
       User,
       Folio,
       FolioLineItem,
     ]),
+    AccountingModule,
   ],
   controllers: [RestaurantController],
   providers: [RestaurantService],

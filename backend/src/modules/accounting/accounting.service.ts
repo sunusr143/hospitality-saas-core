@@ -15,6 +15,7 @@ import { Folio } from '../billing/entities/folio.entity';
 import { CreateTaxRateDto } from './dto/create-tax-rate.dto';
 import { UpdateTaxRateDto } from './dto/update-tax-rate.dto';
 import { CreateLedgerEntryDto } from './dto/create-ledger-entry.dto';
+import { LedgerEntryType } from './enums/ledger-entry-type.enum';
 
 @Injectable()
 export class AccountingService {
@@ -143,5 +144,47 @@ export class AccountingService {
       relations: ['folio', 'createdBy'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async recordSystemEntry(params: {
+    tenantId: string;
+    folioId?: string | null;
+    userId?: string | null;
+    type: LedgerEntryType;
+    amount: number;
+    currency: string;
+    reference?: string | null;
+  }) {
+    const { tenantId, folioId, userId, type, amount, currency, reference } = params;
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new BadRequestException('Invalid tenant');
+    }
+
+    let creator: User | null = null;
+    if (userId) {
+      creator = await this.userRepository.findOne({ where: { id: userId } });
+    }
+
+    let folio: Folio | null = null;
+    if (folioId) {
+      folio = await this.folioRepository.findOne({ where: { id: folioId, tenant: { id: tenantId } } });
+      if (!folio) {
+        throw new NotFoundException('Folio not found');
+      }
+    }
+
+    const entry = this.ledgerRepository.create({
+      tenant,
+      folio,
+      createdBy: creator,
+      type,
+      amount,
+      currency,
+      reference: reference ?? null,
+    });
+
+    return this.ledgerRepository.save(entry);
   }
 }

@@ -6,6 +6,7 @@ Path: src/modules/accounting/accounting.controller.ts
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -25,9 +26,14 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('accounting')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('accounting')
+@AllowDepartments('Finance', 'Administration')
 export class AccountingController {
   constructor(private readonly accountingService: AccountingService) {}
 
@@ -55,6 +61,7 @@ export class AccountingController {
 
   @Post('ledger')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('accounting.ledger.create')
   async createLedgerEntry(@Body() dto: CreateLedgerEntryDto, @Request() req) {
     return this.accountingService.createLedgerEntry({
       tenantId: req.user.tenantId,

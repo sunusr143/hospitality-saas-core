@@ -22,6 +22,7 @@ import { RoomStatus } from '../rooms/enums/room-status.enum';
 import { UserRole } from '../users/enums/user-role.enum';
 import { FoliosService } from '../billing/services/folios.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
+import { UpdateReservationDto } from './dto/update-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
@@ -105,8 +106,8 @@ export class ReservationsService {
       })
       .andWhere(
         `
-        daterange(reservation."checkInDate", reservation."checkOutDate", '[]')
-        && daterange(:checkInDate, :checkOutDate, '[]')
+        daterange(reservation."checkInDate", reservation."checkOutDate", '[)')
+        && daterange(:checkInDate, :checkOutDate, '[)')
         `,
         { checkInDate: dto.checkInDate, checkOutDate: dto.checkOutDate },
       )
@@ -182,6 +183,112 @@ export class ReservationsService {
       relations: ['room', 'createdBy', 'guest'],
       order: { checkInDate: 'ASC' },
     });
+  }
+
+  async updateReservation(params: {
+    tenantId: string;
+    reservationId: string;
+    dto: UpdateReservationDto;
+  }): Promise<Reservation> {
+    const { tenantId, reservationId, dto } = params;
+
+    const reservation = await this.reservationRepository.findOne({
+      where: { id: reservationId, tenant: { id: tenantId } },
+      relations: ['room', 'room.tenant', 'guest'],
+    });
+
+    if (!reservation) {
+      throw new NotFoundException('Reservation not found');
+    }
+
+    if (
+      reservation.status === ReservationStatus.CHECKED_OUT ||
+      reservation.status === ReservationStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Closed reservations cannot be edited');
+    }
+
+    const targetRoom = dto.roomId
+      ? await this.roomRepository.findOne({
+          where: { id: dto.roomId, tenant: { id: tenantId } },
+          relations: ['tenant'],
+        })
+      : reservation.room;
+
+    if (!targetRoom) {
+      throw new NotFoundException('Room not found for this tenant');
+    }
+
+    if (targetRoom.status === RoomStatus.MAINTENANCE) {
+      throw new BadRequestException('Room is under maintenance');
+    }
+
+    const nextCheckInDate = dto.checkInDate ?? reservation.checkInDate;
+    const nextCheckOutDate = dto.checkOutDate ?? reservation.checkOutDate;
+
+    if (new Date(nextCheckInDate) >= new Date(nextCheckOutDate)) {
+      throw new BadRequestException('Check-out must be after check-in');
+    }
+
+    const overlappingReservation = await this.reservationRepository
+      .createQueryBuilder('reservation')
+      .innerJoin('reservation.room', 'room')
+      .where('room.id = :roomId', { roomId: targetRoom.id })
+      .andWhere('reservation.id != :reservationId', { reservationId })
+      .andWhere('reservation.status IN (:...activeStatuses)', {
+        activeStatuses: [
+          ReservationStatus.PENDING,
+          ReservationStatus.CONFIRMED,
+          ReservationStatus.CHECKED_IN,
+        ],
+      })
+      .andWhere(
+        `
+        daterange(reservation."checkInDate", reservation."checkOutDate", '[)')
+        && daterange(:checkInDate, :checkOutDate, '[)')
+        `,
+        { checkInDate: nextCheckInDate, checkOutDate: nextCheckOutDate },
+      )
+      .getOne();
+
+    if (overlappingReservation) {
+      throw new ConflictException('Room already has an overlapping reservation');
+    }
+
+    let guest = reservation.guest;
+    if (dto.guestId) {
+      guest = await this.guestRepository.findOne({
+        where: { id: dto.guestId, tenant: { id: tenantId } },
+      });
+
+      if (!guest) {
+        throw new NotFoundException('Guest not found');
+      }
+    } else if (dto.guestEmail) {
+      guest =
+        (await this.guestRepository.findOne({
+          where: { email: dto.guestEmail, tenant: { id: tenantId } },
+        })) ?? reservation.guest;
+    }
+
+    const fallbackName =
+      dto.guestFullName ??
+      dto.guestName ??
+      guest?.fullName ??
+      reservation.guestName;
+
+    if (!fallbackName) {
+      throw new BadRequestException('Guest name is required');
+    }
+
+    reservation.room = targetRoom;
+    reservation.guest = guest ?? null;
+    reservation.checkInDate = nextCheckInDate;
+    reservation.checkOutDate = nextCheckOutDate;
+    reservation.guestName = guest?.fullName ?? fallbackName;
+    reservation.guestEmail = guest?.email ?? dto.guestEmail ?? reservation.guestEmail;
+
+    return this.reservationRepository.save(reservation);
   }
 
   /**

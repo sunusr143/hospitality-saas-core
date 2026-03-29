@@ -5,6 +5,7 @@ Path: src/modules/reports/reports.controller.ts
 
 import {
   Controller,
+  ForbiddenException,
   Get,
   Query,
   UseGuards,
@@ -18,9 +19,13 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { ReportQueryDto } from './dto/report-query.dto';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('reports')
+@AllowDepartments('Finance', 'Administration')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

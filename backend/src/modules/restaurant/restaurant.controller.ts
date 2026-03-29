@@ -12,8 +12,11 @@ import {
   Patch,
   Post,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { RestaurantService } from './restaurant.service';
 import { CreateRestaurantCategoryDto } from './dto/create-restaurant-category.dto';
@@ -21,16 +24,22 @@ import { UpdateRestaurantCategoryDto } from './dto/update-restaurant-category.dt
 import { CreateRestaurantItemDto } from './dto/create-restaurant-item.dto';
 import { UpdateRestaurantItemDto } from './dto/update-restaurant-item.dto';
 import { CreateRestaurantOrderDto } from './dto/create-restaurant-order.dto';
+import { UpdateRestaurantOrderDto } from './dto/update-restaurant-order.dto';
 import { PostRestaurantOrderDto } from './dto/post-restaurant-order.dto';
 import { CancelRestaurantOrderDto } from './dto/cancel-restaurant-order.dto';
+import { ImportRestaurantItemsDto } from './dto/import-restaurant-items.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 @Controller('restaurant')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('restaurant')
+@AllowDepartments('Food & Beverage', 'Kitchen', 'Administration')
 export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
@@ -60,6 +69,21 @@ export class RestaurantController {
   @Roles(UserRole.ADMIN)
   async createItem(@Body() dto: CreateRestaurantItemDto, @Request() req) {
     return this.restaurantService.createItem(req.user.tenantId, dto);
+  }
+
+  @Post('items/import')
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  async importItems(
+    @UploadedFile() file: any,
+    @Body() dto: ImportRestaurantItemsDto,
+    @Request() req,
+  ) {
+    return this.restaurantService.importItemsFromCsv({
+      tenantId: req.user.tenantId,
+      file,
+      dto,
+    });
   }
 
   @Patch('items/:id')
@@ -101,6 +125,20 @@ export class RestaurantController {
     @Request() req,
   ) {
     return this.restaurantService.getOrder(req.user.tenantId, id);
+  }
+
+  @Patch('orders/:id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async updateOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRestaurantOrderDto,
+    @Request() req,
+  ) {
+    return this.restaurantService.updateOrder({
+      tenantId: req.user.tenantId,
+      orderId: id,
+      dto,
+    });
   }
 
   @Post('orders/:id/post')

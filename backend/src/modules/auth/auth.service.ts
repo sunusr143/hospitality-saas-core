@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../users/users.service';
 import { User } from '../users/user.entity';
+import { Tenant } from '../tenants/tenant.entity';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
+      tenantId: user.tenant.id,
       tenantCode: user.tenant.code,
       role: user.role,
     };
@@ -45,8 +47,15 @@ export class AuthService {
         id: user.id,
         fullName: user.fullName,
         email: user.email,
+        phone: user.phone,
+        title: user.title,
+        department: user.department,
+        photoUrl: user.photoUrl,
         role: user.role,
+        tenantId: user.tenant.id,
         tenantCode: user.tenant.code,
+        softwareName: user.tenant.softwareName,
+        enabledModules: user.tenant.enabledModules ?? [...Tenant.DEFAULT_ENABLED_MODULES],
       },
     };
   }

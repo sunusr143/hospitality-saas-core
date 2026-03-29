@@ -22,6 +22,7 @@ import { UpdateBarCategoryDto } from './dto/update-bar-category.dto';
 import { CreateBarItemDto } from './dto/create-bar-item.dto';
 import { UpdateBarItemDto } from './dto/update-bar-item.dto';
 import { CreateBarOrderDto } from './dto/create-bar-order.dto';
+import { UpdateBarOrderDto } from './dto/update-bar-order.dto';
 import { PostBarOrderDto } from './dto/post-bar-order.dto';
 import { CancelBarOrderDto } from './dto/cancel-bar-order.dto';
 import { SeedBarDto } from './dto/seed-bar.dto';
@@ -32,9 +33,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 @Controller('bar')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('bar')
+@AllowDepartments('Bar', 'Food & Beverage', 'Administration')
 export class BarController {
   constructor(private readonly barService: BarService) {}
 
@@ -132,6 +137,20 @@ export class BarController {
     @Request() req,
   ) {
     return this.barService.getOrder(req.user.tenantId, id);
+  }
+
+  @Patch('orders/:id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async updateOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateBarOrderDto,
+    @Request() req,
+  ) {
+    return this.barService.updateOrder({
+      tenantId: req.user.tenantId,
+      orderId: id,
+      dto,
+    });
   }
 
   /**

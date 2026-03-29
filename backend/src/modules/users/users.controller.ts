@@ -6,31 +6,61 @@ Path: src/modules/users/users.controller.ts
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  Patch,
   Post,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from './enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../common/decorators/action-access.decorator';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('users')
+@AllowDepartments('Administration')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @Roles(UserRole.ADMIN)
+  @RequireAction('users.manage')
   async create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.createUser(createUserDto);
   }
 
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async findAll(@Request() req) {
+    return this.usersService.findAll({ tenantCode: req.user.tenantCode });
+  }
+
+  @Patch(':id/status')
   @Roles(UserRole.ADMIN)
-  async findAll() {
-    return this.usersService.findAll();
+  @RequireAction('users.manage')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @Request() req,
+  ) {
+    return this.usersService.updateStatus(req.user.tenantCode, id, dto.isActive);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @RequireAction('users.manage')
+  async remove(@Param('id') id: string, @Request() req) {
+    await this.usersService.removeUser(req.user.tenantCode, id);
+    return { success: true };
   }
 }

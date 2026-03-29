@@ -10,9 +10,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 @Controller('laundry')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('operations')
+@AllowDepartments('Housekeeping', 'Administration')
 export class LaundryController {
   constructor(private readonly laundryService: LaundryService) {}
 

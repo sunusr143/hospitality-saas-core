@@ -56,6 +56,12 @@ export class RestaurantOrder {
   @Column({ type: 'timestamptz', nullable: true })
   postedAt: Date | null;
 
+  @Column({ type: 'text', nullable: true })
+  lastActionNote: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  cancellationReason: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

@@ -77,7 +77,7 @@ export class RatePlansService {
     if (
       ratePlan.validFrom &&
       ratePlan.validTo &&
-      ratePlan.validFrom >= ratePlan.validTo
+      new Date(ratePlan.validFrom) >= new Date(ratePlan.validTo)
     ) {
       throw new BadRequestException('validFrom must be before validTo');
     }
@@ -111,4 +111,3 @@ export class RatePlansService {
 }
 
 /* >>> Explicit export (defensive, optional) */
-

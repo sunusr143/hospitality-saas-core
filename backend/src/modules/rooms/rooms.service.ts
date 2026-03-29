@@ -11,6 +11,7 @@ import { Room } from './room.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomStatus } from './enums/room-status.enum';
+import { Reservation, ReservationStatus } from '../reservations/reservation.entity';
 
 @Injectable()
 export class RoomsService {
@@ -20,6 +21,9 @@ export class RoomsService {
 
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+
+    @InjectRepository(Reservation)
+    private readonly reservationRepository: Repository<Reservation>,
   ) {}
 
   async create(dto: CreateRoomDto): Promise<Room> {
@@ -63,25 +67,45 @@ export class RoomsService {
   }
 
   async updateStatus(roomId: string, newStatus: RoomStatus): Promise<Room> {
-  const room = await this.roomRepository.findOne({
-    where: { id: roomId },
-  });
+    const room = await this.roomRepository.findOne({
+      where: { id: roomId },
+      relations: ['tenant'],
+    });
 
-  if (!room) {
-    throw new BadRequestException('Room not found');
-  }
+    if (!room) {
+      throw new BadRequestException('Room not found');
+    }
 
-  // Allowed transitions
-  if (
-    room.status === RoomStatus.OCCUPIED &&
-    newStatus === RoomStatus.MAINTENANCE
-  ) {
-    throw new BadRequestException(
-      'Cannot move occupied room to maintenance',
-    );
-  }
+    const checkedInReservation = await this.reservationRepository.findOne({
+      where: {
+        room: { id: room.id },
+        tenant: { id: room.tenant.id },
+        status: ReservationStatus.CHECKED_IN,
+      },
+    });
 
-  room.status = newStatus;
-  return this.roomRepository.save(room);
+    if (newStatus === RoomStatus.OCCUPIED && !checkedInReservation) {
+      throw new BadRequestException(
+        'Room can be marked occupied only after guest check-in',
+      );
+    }
+
+    if (newStatus === RoomStatus.AVAILABLE && checkedInReservation) {
+      throw new BadRequestException(
+        'Room cannot be marked available while a guest is still checked in',
+      );
+    }
+
+    if (
+      room.status === RoomStatus.OCCUPIED &&
+      newStatus === RoomStatus.MAINTENANCE
+    ) {
+      throw new BadRequestException(
+        'Cannot move occupied room to maintenance',
+      );
+    }
+
+    room.status = newStatus;
+    return this.roomRepository.save(room);
   }
 }

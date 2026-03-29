@@ -13,6 +13,7 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  Headers,
 } from '@nestjs/common';
 
 import { FoliosService } from '../services/folios.service';
@@ -20,6 +21,9 @@ import { FoliosService } from '../services/folios.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../common/guards/roles.guard';
 import { Roles } from '../../../common/decorators/roles.decorator';
+import { RequireModule } from '../../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../../common/decorators/department-access.decorator';
+import { RequireAction } from '../../../common/decorators/action-access.decorator';
 
 import { UserRole } from '../../users/enums/user-role.enum';
 import { AddLineItemDto } from '../dto/add-line-item.dto';
@@ -28,6 +32,8 @@ import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 
 @Controller('folios')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('billing')
+@AllowDepartments('Finance', 'Administration')
 export class FoliosController {
   constructor(private readonly foliosService: FoliosService) {}
 
@@ -85,9 +91,11 @@ export class FoliosController {
    */
   @Post(':folioId/payments')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('billing.payment.post')
   async addPayment(
     @Param('folioId', ParseUUIDPipe) folioId: string,
     @Body() dto: AddPaymentDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Request() req,
   ) {
     return this.foliosService.addPayment({
@@ -95,6 +103,7 @@ export class FoliosController {
       folioId,
       dto,
       user: req.user,
+      idempotencyKey,
     });
   }
 
@@ -103,6 +112,7 @@ export class FoliosController {
    */
   @Patch(':folioId/close')
   @Roles(UserRole.ADMIN)
+  @RequireAction('billing.folio.close')
   async closeFolio(
     @Param('folioId', ParseUUIDPipe) folioId: string,
     @Request() req,
@@ -119,9 +129,11 @@ export class FoliosController {
    */
   @Post(':folioId/invoice')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @RequireAction('billing.invoice.generate')
   async generateInvoice(
     @Param('folioId', ParseUUIDPipe) folioId: string,
     @Body() dto: CreateInvoiceDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Request() req,
   ) {
     return this.foliosService.generateInvoiceForFolio({
@@ -129,6 +141,7 @@ export class FoliosController {
       folioId,
       dto,
       user: req.user,
+      idempotencyKey,
     });
   }
 

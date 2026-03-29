@@ -18,5 +18,6 @@ import { Folio } from '../billing/entities/folio.entity';
   imports: [TypeOrmModule.forFeature([TaxRate, LedgerEntry, Tenant, User, Folio])],
   controllers: [AccountingController],
   providers: [AccountingService],
+  exports: [AccountingService],
 })
 export class AccountingModule {}

@@ -13,6 +13,7 @@ import { Guest } from '../guests/guest.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { GuestDocument } from './entities/guest-document.entity';
 import { Deposit } from './entities/deposit.entity';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { Deposit } from './entities/deposit.entity';
       GuestDocument,
       Deposit,
     ]),
+    BillingModule,
   ],
   controllers: [FrontdeskController],
   providers: [FrontdeskService],

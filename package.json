@@ -1,4 +1,14 @@
 {
+  "name": "hospitality-saas-core",
+  "private": true,
+  "scripts": {
+    "install:local": "node scripts/install-local.mjs",
+    "demo:setup": "node scripts/install-local.mjs",
+    "demo": "node scripts/demo.mjs",
+    "dev": "node scripts/dev-local.mjs",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:ui": "npm --prefix ui run dev -- --host 0.0.0.0"
+  },
   "dependencies": {
     "@nestjs/typeorm": "^11.0.0",
     "typeorm": "^0.3.28"

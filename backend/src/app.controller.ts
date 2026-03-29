@@ -12,4 +12,14 @@ export class AppController {
   healthCheck(): string {
     return this.appService.healthCheck();
   }
+
+  @Get('health/live')
+  liveness() {
+    return { status: 'ok' };
+  }
+
+  @Get('health/ready')
+  async readiness() {
+    return this.appService.readiness();
+  }
 }

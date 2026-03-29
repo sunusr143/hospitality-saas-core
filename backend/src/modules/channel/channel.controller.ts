@@ -14,9 +14,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { RequireModule } from '../../common/decorators/module-access.decorator';
+import { AllowDepartments } from '../../common/decorators/department-access.decorator';
 
 @Controller('channel')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@RequireModule('finance')
+@AllowDepartments('Finance', 'Administration')
 export class ChannelController {
   constructor(private readonly channelService: ChannelService) {}
 
