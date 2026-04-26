@@ -6,5 +6,6 @@ Path: src/modules/bar/enums/bar-order-status.enum.ts
 export enum BarOrderStatus {
   OPEN = 'OPEN',
   POSTED = 'POSTED',
+  CLOSED = 'CLOSED',
   CANCELLED = 'CANCELLED',
 }

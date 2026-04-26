@@ -28,6 +28,27 @@ export class User {
   @Exclude()
   password: string;
 
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  superUserRecoveryQuestionOne: string | null;
+
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  superUserRecoveryQuestionTwo: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
+  superUserRecoveryAnswerHashOne: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
+  superUserRecoveryAnswerHashTwo: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
+  superUserRecoveryKeyHash: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  superUserRecoveryConfiguredAt: Date | null;
+
   @Column({ type: 'varchar', length: 30, nullable: true })
   phone: string | null;
 

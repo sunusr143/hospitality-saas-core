@@ -6,6 +6,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
+import { UserRole } from '../../users/enums/user-role.enum';
+import { isPlatformTenantCode } from '../../../common/utils/platform-access';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -31,6 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      isPlatformTenant: user.role === UserRole.SUPER_USER || isPlatformTenantCode(user.tenant.code),
       department: user.department,
       title: user.title,
       tenantId: user.tenant.id,

@@ -17,5 +17,6 @@ import { User } from '../users/user.entity';
   imports: [TypeOrmModule.forFeature([MaintenanceRequest, Tenant, Room, User])],
   controllers: [MaintenanceController],
   providers: [MaintenanceService],
+  exports: [MaintenanceService],
 })
 export class MaintenanceModule {}

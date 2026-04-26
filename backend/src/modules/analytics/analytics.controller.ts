@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { hasPlatformAccess } from '../../common/utils/platform-access';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -22,7 +23,7 @@ export class AnalyticsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getKpis(@Query() query: ReportQueryDto, @Request() req) {
     return this.analyticsService.getKpis({
-      tenantCode: req.user.tenantCode ?? req.user.tenantId,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode ?? req.user.tenantId,
       from: query.from,
       to: query.to,
     });
@@ -32,7 +33,7 @@ export class AnalyticsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getDaily(@Query() query: ReportQueryDto, @Request() req) {
     return this.analyticsService.getDailyKpis({
-      tenantCode: req.user.tenantCode ?? req.user.tenantId,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode ?? req.user.tenantId,
       from: query.from,
       to: query.to,
     });
@@ -42,7 +43,7 @@ export class AnalyticsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getRevenue(@Query() query: ReportQueryDto, @Request() req) {
     return this.analyticsService.getRevenueByRoom({
-      tenantCode: req.user.tenantCode ?? req.user.tenantId,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode ?? req.user.tenantId,
       from: query.from,
       to: query.to,
     });

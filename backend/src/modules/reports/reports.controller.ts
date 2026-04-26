@@ -21,6 +21,7 @@ import { UserRole } from '../users/enums/user-role.enum';
 import { ReportQueryDto } from './dto/report-query.dto';
 import { RequireModule } from '../../common/decorators/module-access.decorator';
 import { AllowDepartments } from '../../common/decorators/department-access.decorator';
+import { hasPlatformAccess } from '../../common/utils/platform-access';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,7 +37,7 @@ export class ReportsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getKpis(@Query() query: ReportQueryDto, @Request() req) {
     return this.reportsService.getKpis({
-      tenantCode: req.user.tenantCode,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode,
       from: query.from,
       to: query.to,
     });
@@ -49,7 +50,7 @@ export class ReportsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getDailyKpis(@Query() query: ReportQueryDto, @Request() req) {
     return this.reportsService.getDailyKpis({
-      tenantCode: req.user.tenantCode,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode,
       from: query.from,
       to: query.to,
     });
@@ -66,7 +67,7 @@ export class ReportsController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const data = await this.reportsService.getKpis({
-      tenantCode: req.user.tenantCode,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode,
       from: query.from,
       to: query.to,
     });
@@ -106,7 +107,7 @@ export class ReportsController {
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async getRevenueByRoom(@Query() query: ReportQueryDto, @Request() req) {
     return this.reportsService.getRevenueByRoom({
-      tenantCode: req.user.tenantCode,
+      tenantCode: hasPlatformAccess(req.user) && query.tenantCode ? query.tenantCode : req.user.tenantCode,
       from: query.from,
       to: query.to,
     });

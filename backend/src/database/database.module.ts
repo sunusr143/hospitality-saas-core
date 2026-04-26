@@ -25,7 +25,7 @@ function asBoolean(value: unknown, fallback: boolean): boolean {
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
         // Avoid TypeORM enum sync issues in production; use migrations instead.
-        synchronize: false,
+        synchronize: asBoolean(config.get('DB_SYNCHRONIZE'), false),
         logging: asBoolean(config.get('DB_LOGGING'), false),
         migrations: [join(__dirname, 'migrations/*{.ts,.js}')],
         migrationsRun: asBoolean(config.get('DB_MIGRATIONS_RUN'), true),

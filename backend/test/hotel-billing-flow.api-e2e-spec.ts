@@ -78,7 +78,7 @@ describe('Hotel Billing Flow (api e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('reservation -> checkout -> folio -> payment -> invoice', async () => {
@@ -86,7 +86,7 @@ describe('Hotel Billing Flow (api e2e)', () => {
 
     const loginRes = await http
       .post('/auth/login')
-      .send({ email: adminEmail, password: adminPassword })
+      .send({ tenantCode, email: adminEmail, password: adminPassword })
       .expect(201);
     const token = loginRes.body.accessToken as string;
 
@@ -203,7 +203,8 @@ describe('Hotel Billing Flow (api e2e)', () => {
       .expect(200);
 
     expect(Number(summary.body.subtotal)).toBe(1100);
-    expect(Number(summary.body.balanceDue)).toBe(600);
+    expect(Number(summary.body.tax)).toBe(132);
+    expect(Number(summary.body.balanceDue)).toBe(732);
   });
 
   it('prevents STAFF from closing folio', async () => {
@@ -211,13 +212,13 @@ describe('Hotel Billing Flow (api e2e)', () => {
 
     const adminLogin = await http
       .post('/auth/login')
-      .send({ email: adminEmail, password: adminPassword })
+      .send({ tenantCode, email: adminEmail, password: adminPassword })
       .expect(201);
     const adminToken = adminLogin.body.accessToken as string;
 
     const staffLogin = await http
       .post('/auth/login')
-      .send({ email: staffEmail, password: adminPassword })
+      .send({ tenantCode, email: staffEmail, password: adminPassword })
       .expect(201);
     const staffToken = staffLogin.body.accessToken as string;
 

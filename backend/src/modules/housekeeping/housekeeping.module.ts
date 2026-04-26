@@ -10,9 +10,13 @@ import { HousekeepingInspection } from './entities/housekeeping-inspection.entit
 import { User } from '../users/user.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { Room } from '../rooms/room.entity';
+import { MaintenanceModule } from '../maintenance/maintenance.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([HousekeepingTask, HousekeepingInspection, Tenant, Room, User])],
+  imports: [
+    TypeOrmModule.forFeature([HousekeepingTask, HousekeepingInspection, Tenant, Room, User]),
+    MaintenanceModule,
+  ],
   controllers: [HousekeepingController],
   providers: [HousekeepingService],
 })

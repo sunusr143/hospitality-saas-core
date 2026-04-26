@@ -1,3 +1,8 @@
+import { join } from 'path';
+import { config } from 'dotenv';
+
+config({ path: join(__dirname, '..', '.env'), quiet: true });
+
 const required = [
   'TEST_DB_HOST',
   'TEST_DB_PORT',
@@ -19,7 +24,7 @@ process.env.DB_PORT = process.env.TEST_DB_PORT;
 process.env.DB_USERNAME = process.env.TEST_DB_USERNAME;
 process.env.DB_PASSWORD = process.env.TEST_DB_PASSWORD;
 process.env.DB_NAME = process.env.TEST_DB_NAME;
-process.env.DB_SYNCHRONIZE = 'false';
-process.env.DB_MIGRATIONS_RUN = 'true';
+process.env.DB_SYNCHRONIZE = 'true';
+process.env.DB_MIGRATIONS_RUN = 'false';
 process.env.DB_LOGGING = process.env.TEST_DB_LOGGING ?? 'false';
 process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-only-jwt-secret-32-chars-min';

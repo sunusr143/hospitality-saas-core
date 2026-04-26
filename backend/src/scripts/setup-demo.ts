@@ -66,8 +66,7 @@ function addDays(date: Date, days: number): Date {
 
 async function main() {
   if ((process.env.APP_MODE ?? 'demo') !== 'demo') {
-    console.log('APP_MODE is not demo. Skipping demo seed.');
-    return;
+    console.log(`APP_MODE=${process.env.APP_MODE}. Continuing demo setup because this command was invoked explicitly.`);
   }
 
   await dataSource.initialize();

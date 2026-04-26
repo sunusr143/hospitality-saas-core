@@ -110,8 +110,7 @@ async function reconcileRooms(params: {
 
 async function main() {
   if ((process.env.APP_MODE ?? 'production') !== 'production') {
-    console.log('APP_MODE is not production. Skipping production setup.');
-    return;
+    console.log(`APP_MODE=${process.env.APP_MODE}. Continuing production setup because this command was invoked explicitly.`);
   }
 
   await dataSource.initialize();

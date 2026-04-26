@@ -46,13 +46,20 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied');
     }
 
-    if (requiredRoles && requiredRoles.length > 0 && !requiredRoles.includes(user.role)) {
+    const isSuperUser = user.role === UserRole.SUPER_USER;
+    const matchesRequiredRole =
+      !requiredRoles ||
+      requiredRoles.length === 0 ||
+      requiredRoles.includes(user.role) ||
+      (isSuperUser && requiredRoles.includes(UserRole.ADMIN));
+
+    if (!matchesRequiredRole) {
       throw new ForbiddenException(
         'You do not have permission to access this resource',
       );
     }
 
-    if (requiredModule) {
+    if (requiredModule && !isSuperUser) {
       const enabledModules = Array.isArray(user.enabledModules)
         ? user.enabledModules
         : [];
@@ -67,7 +74,8 @@ export class RolesGuard implements CanActivate {
     if (
       allowedDepartments &&
       allowedDepartments.length > 0 &&
-      user.role !== UserRole.ADMIN
+      user.role !== UserRole.ADMIN &&
+      !isSuperUser
     ) {
       const department = String(user.department ?? '').toLowerCase();
       if (!allowedDepartments.includes(department)) {
@@ -77,7 +85,7 @@ export class RolesGuard implements CanActivate {
       }
     }
 
-    if (requiredAction && user.role !== UserRole.ADMIN) {
+    if (requiredAction && user.role !== UserRole.ADMIN && !isSuperUser) {
       const department = String(user.department ?? '').toLowerCase();
       const allowedActionDepartments = ACTION_POLICY[requiredAction] ?? [];
       if (!allowedActionDepartments.includes(department)) {

@@ -1,0 +1,6 @@
+category,item_code,item_name,price,tax_rate,currency,description,is_active
+Hot Beverages,CS001,Americano,160,5,INR,Single shot espresso with hot water,true
+Hot Beverages,CS002,Cappuccino,190,5,INR,Espresso with steamed milk foam,true
+Cold Beverages,CS010,Cold Coffee,220,5,INR,Chilled coffee with milk and ice,true
+Bakery,CS020,Butter Croissant,145,5,INR,Fresh baked flaky croissant,true
+Bakery,CS021,Blueberry Muffin,155,5,INR,Soft muffin with blueberry filling,true

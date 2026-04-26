@@ -35,6 +35,7 @@ import { LedgerEntryType } from '../../accounting/enums/ledger-entry-type.enum';
 
 /* >>> USED FOR ROOM-NIGHT AUTO CHARGE */
 import { RatePlansService } from '../../rate-plans/rate-plans.service';
+import { RmsService } from '../../rms/rms.service';
 
 @Injectable()
 export class FoliosService {
@@ -60,6 +61,7 @@ export class FoliosService {
     private readonly userRepository: Repository<User>,
 
     private readonly ratePlansService: RatePlansService,
+    private readonly rmsService: RmsService,
     private readonly billingSettingsService: BillingSettingsService,
     private readonly auditLogsService: AuditLogsService,
     private readonly accountingService: AccountingService,
@@ -78,6 +80,20 @@ export class FoliosService {
     if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Only ADMIN can create folio');
     }
+
+    return this.ensureFolioForReservation({
+      tenantId,
+      reservationId,
+      user,
+    });
+  }
+
+  async ensureFolioForReservation(params: {
+    tenantId: string;
+    reservationId: string;
+    user: { userId: string; role: UserRole };
+  }) {
+    const { tenantId, reservationId, user } = params;
 
     const reservation = await this.reservationRepository.findOne({
       where: {
@@ -99,7 +115,7 @@ export class FoliosService {
     });
 
     if (existing) {
-      throw new ConflictException('Folio already exists for reservation');
+      return existing;
     }
 
     const creator = await this.userRepository.findOne({
@@ -172,16 +188,22 @@ export class FoliosService {
     }
 
     if (
-      [FolioLineItemType.ADJUSTMENT, FolioLineItemType.DISCOUNT].includes(dto.type) &&
+      [FolioLineItemType.ADJUSTMENT, FolioLineItemType.DISCOUNT].includes(
+        dto.type,
+      ) &&
       user.role !== UserRole.ADMIN
     ) {
-      throw new ForbiddenException('Only ADMIN can add adjustments or discounts');
+      throw new ForbiddenException(
+        'Only ADMIN can add adjustments or discounts',
+      );
     }
 
     if (
       [FolioLineItemType.PAYMENT, FolioLineItemType.TAX_GST].includes(dto.type)
     ) {
-      throw new BadRequestException('Use the dedicated endpoints for payments or taxes');
+      throw new BadRequestException(
+        'Use the dedicated endpoints for payments or taxes',
+      );
     }
 
     const poster = await this.userRepository.findOne({
@@ -323,7 +345,7 @@ export class FoliosService {
         tenant: { id: tenantId },
         reservation: { id: reservation.id },
       },
-      relations: ['tenant'],
+      relations: ['tenant', 'reservation'],
     });
 
     if (!folio) {
@@ -354,16 +376,28 @@ export class FoliosService {
       throw new BadRequestException('Invalid stay duration');
     }
 
-    const ratePlan =
-      await this.ratePlansService.findLatestActiveForTenant(tenantId);
+    // NEW: Get rates from RMS calendar (per-day) or fallback to RatePlan
+    const roomType = reservation.room?.roomType || 'STANDARD';
+    const rates = await this.rmsService.getRatesByDateRange(
+      tenantId,
+      roomType,
+      reservation.checkInDate,
+      reservation.checkOutDate,
+    );
+
+    // Calculate total from daily rates
+    const totalAmount = rates.reduce((sum, r) => sum + r.baseRate, 0);
+    const avgRate = totalAmount / rates.length;
+    const currency = rates[0]?.currency || 'INR';
 
     const lineItem = this.lineItemRepository.create({
       type: FolioLineItemType.ROOM_CHARGE,
-      description: `Room charges (${nights} nights @ ${ratePlan.basePrice})`,
+      // Enhanced description showing dynamic rates
+      description: `Room charges (${nights} nights @ dynamic rates)`,
       quantity: nights,
-      unitPrice: ratePlan.basePrice,
-      totalAmount: Number(ratePlan.basePrice) * nights,
-      currency: folio.currency,
+      unitPrice: avgRate,
+      totalAmount,
+      currency: currency,
       tenant: folio.tenant,
       folio,
       postedBy: null, // SYSTEM
@@ -396,11 +430,13 @@ export class FoliosService {
         action: 'ROOM_NIGHT_CHARGE_POSTED',
         entityType: 'FOLIO_LINE_ITEM',
         entityId: saved.id,
+
         metadata: {
           folioId: folio.id,
           reservationId: reservation.id,
           nights,
-          unitPrice: ratePlan.basePrice,
+          unitPrice: avgRate,
+          ratesSource: rates[0]?.source,
         },
       });
     }

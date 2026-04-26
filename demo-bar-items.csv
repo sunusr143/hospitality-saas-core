@@ -1,0 +1,6 @@
+category,item_code,item_name,price,tax_rate,currency,description,is_active
+Cocktails,BR001,Mojito,420,18,INR,White rum mint lime and soda,true
+Cocktails,BR002,Whisky Sour,460,18,INR,Whisky lemon sugar and foam,true
+Beer,BR010,Kingfisher Premium Pint,280,18,INR,Chilled premium lager pint,true
+Spirits,BR020,Jameson 30ml,390,18,INR,Irish whiskey single pour,true
+Bar Bites,BR030,Masala Peanuts,140,5,INR,Spiced roasted peanuts,true

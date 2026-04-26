@@ -1,0 +1,11 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily PostgreSQL backup at 02:15 UTC
+15 2 * * * cd /opt/hospitality-saas-core && \
+  BACKUP_DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/hospitality_prod' \
+  BACKUP_DIR='/var/backups/hospitality/postgres' \
+  EXTERNAL_COPY_DIR='/mnt/offsite/hospitality/postgres' \
+  RETENTION_DAYS='14' \
+  BACKUP_PREFIX='hospitality-prod' \
+  ./scripts/backup-postgres.sh >> /var/log/hospitality-backup.log 2>&1

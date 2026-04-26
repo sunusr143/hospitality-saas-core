@@ -14,6 +14,10 @@ import { User } from '../users/user.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { RoomStatus } from '../rooms/enums/room-status.enum';
 import { RoomMoveDto } from './dto/room-move.dto';
+import { RmsService } from '../rms/rms.service';
+import { FoliosService } from '../billing/services/folios.service';
+import { FolioLineItemType } from '../billing/enums/folio-line-item-type.enum';
+import { Folio } from '../billing/entities/folio.entity';
 
 @Injectable()
 export class FrontDeskService {
@@ -33,6 +37,11 @@ export class FrontDeskService {
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
 
+    @InjectRepository(Folio)
+    private readonly folioRepository: Repository<Folio>,
+
+    private readonly rmsService: RmsService,
+    private readonly foliosService: FoliosService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -96,7 +105,110 @@ export class FrontDeskService {
         reason: dto.reason ?? null,
       });
 
-      return manager.getRepository(RoomMoveLog).save(log);
+      const savedLog = await manager.getRepository(RoomMoveLog).save(log);
+
+      // Handle billing adjustment if folio exists
+      if (reservation.status === ReservationStatus.CHECKED_IN) {
+        await this.handleRoomMoveBilling({
+          tenantId,
+          reservation,
+          fromRoom,
+          toRoom,
+          user,
+        });
+      }
+
+      return savedLog;
     });
+  }
+
+  /**
+   * Handle billing adjustment for room moves
+   * Calculates rate difference between old and new room for remaining nights
+   */
+  private async handleRoomMoveBilling(params: {
+    tenantId: string;
+    reservation: Reservation;
+    fromRoom: Room;
+    toRoom: Room;
+    user: { userId: string };
+  }) {
+    const { tenantId, reservation, fromRoom, toRoom, user } = params;
+
+    // Find the active folio for this reservation
+    const folio = await this.folioRepository.findOne({
+      where: {
+        tenant: { id: tenantId },
+        reservation: { id: reservation.id },
+      },
+    });
+
+    if (!folio) {
+      // No folio exists yet - it will be created at checkout with the new room
+      return;
+    }
+
+    // Calculate remaining nights from today until checkout
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkOutDate = new Date(reservation.checkOutDate);
+    checkOutDate.setHours(0, 0, 0, 0);
+
+    const remainingNights = Math.ceil(
+      (checkOutDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (remainingNights <= 0) {
+      // No remaining nights to charge for
+      return;
+    }
+
+    // Get rates for both rooms for remaining nights
+    const fromRoomRates = await this.rmsService.getRatesByDateRange(
+      tenantId,
+      fromRoom.roomType,
+      today.toISOString().split('T')[0],
+      reservation.checkOutDate,
+    );
+
+    const toRoomRates = await this.rmsService.getRatesByDateRange(
+      tenantId,
+      toRoom.roomType,
+      today.toISOString().split('T')[0],
+      reservation.checkOutDate,
+    );
+
+    // Calculate total rates for remaining stay
+    const fromRoomTotal = fromRoomRates.reduce((sum, rate) => sum + rate.baseRate, 0);
+    const toRoomTotal = toRoomRates.reduce((sum, rate) => sum + rate.baseRate, 0);
+
+    // Calculate the adjustment amount
+    const adjustmentAmount = toRoomTotal - fromRoomTotal;
+
+    // If there's a rate difference, add adjustment to folio
+    if (adjustmentAmount !== 0) {
+      const description =
+        adjustmentAmount > 0
+          ? `Room upgrade from ${fromRoom.roomType} to ${toRoom.roomType}`
+          : `Room downgrade from ${fromRoom.roomType} to ${toRoom.roomType}`;
+
+      await this.foliosService.addLineItem({
+        tenantId,
+        folioId: folio.id,
+        dto: {
+          type: FolioLineItemType.ADJUSTMENT,
+          description,
+          quantity: 1,
+          unitPrice: adjustmentAmount,
+          currency: folio.currency || 'INR',
+          relatedEntityType: 'RoomMove',
+          relatedEntityId: fromRoom.id, // Track which room we moved from
+        },
+        user: {
+          userId: user.userId,
+          role: 'ADMIN', // Room moves are typically admin-initiated
+        } as any, // Type assertion needed - adjust as per actual UserRole enum
+      });
+    }
   }
 }

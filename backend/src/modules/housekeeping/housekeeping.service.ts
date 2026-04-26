@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { HousekeepingTask } from './entities/housekeeping-task.entity';
 import { CreateHousekeepingTaskDto } from './dto/create-housekeeping-task.dto';
 import { UpdateHousekeepingStatusDto } from './dto/update-housekeeping-status.dto';
@@ -17,7 +17,10 @@ import { Tenant } from '../tenants/tenant.entity';
 import { Room } from '../rooms/room.entity';
 import { HousekeepingStatus } from './enums/housekeeping-status.enum';
 import { User } from '../users/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 import { HousekeepingInspection } from './entities/housekeeping-inspection.entity';
+import { RoomStatus } from '../rooms/enums/room-status.enum';
+import { MaintenanceService } from '../maintenance/maintenance.service';
 
 @Injectable()
 export class HousekeepingService {
@@ -32,6 +35,7 @@ export class HousekeepingService {
     private readonly roomRepo: Repository<Room>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly maintenanceService: MaintenanceService,
   ) {}
 
   async create(tenantId: string, dto: CreateHousekeepingTaskDto) {
@@ -51,7 +55,10 @@ export class HousekeepingService {
       dueAt: null,
     });
 
-    return this.taskRepo.save(task);
+    const savedTask = await this.taskRepo.save(task);
+    await this.markRoomUnavailableForHousekeeping(room);
+
+    return savedTask;
   }
 
   async findAll(tenantId: string) {
@@ -63,10 +70,14 @@ export class HousekeepingService {
   }
 
   async updateStatus(
+    tenantId: string,
     taskId: string,
     dto: UpdateHousekeepingStatusDto,
   ) {
-    const task = await this.taskRepo.findOne({ where: { id: taskId } });
+    const task = await this.taskRepo.findOne({
+      where: { id: taskId, tenant: { id: tenantId } },
+      relations: ['room', 'tenant'],
+    });
     if (!task) throw new NotFoundException('Housekeeping task not found');
 
     if (task.status === HousekeepingStatus.COMPLETED) {
@@ -74,21 +85,40 @@ export class HousekeepingService {
     }
 
     task.status = dto.status;
-    return this.taskRepo.save(task);
+    const savedTask = await this.taskRepo.save(task);
+
+    if (this.isActiveHousekeepingStatus(savedTask.status)) {
+      await this.markRoomUnavailableForHousekeeping(savedTask.room);
+    } else {
+      await this.releaseRoomAfterHousekeepingIfClear(savedTask);
+    }
+
+    return savedTask;
   }
 
   async assignTask(tenantId: string, taskId: string, dto: AssignHousekeepingDto) {
     const task = await this.taskRepo.findOne({
       where: { id: taskId, tenant: { id: tenantId } },
+      relations: ['room'],
     });
     if (!task) throw new NotFoundException('Housekeeping task not found');
 
-    const assignee = await this.userRepo.findOne({ where: { id: dto.assignedToId } });
+    const assignee = await this.userRepo.findOne({
+      where: { id: dto.assignedToId, tenant: { id: tenantId } },
+    });
     if (!assignee) throw new NotFoundException('User not found');
+    this.ensureAssignableHousekeeper(assignee);
 
     task.assignedTo = assignee;
     task.dueAt = dto.dueAt ? new Date(dto.dueAt) : null;
-    return this.taskRepo.save(task);
+    if (task.status === HousekeepingStatus.PENDING) {
+      task.status = HousekeepingStatus.ASSIGNED;
+    }
+
+    const savedTask = await this.taskRepo.save(task);
+    await this.markRoomUnavailableForHousekeeping(savedTask.room);
+
+    return savedTask;
   }
 
   async createInspection(tenantId: string, dto: CreateInspectionDto, userId: string) {
@@ -111,7 +141,86 @@ export class HousekeepingService {
       notes: dto.notes ?? null,
     });
 
-    return this.inspectionRepo.save(inspection);
+    const savedInspection = await this.inspectionRepo.save(inspection);
+
+    // If inspection failed, create maintenance request and block room
+    if (!dto.passed) {
+      await this.handleFailedInspection({
+        tenantId,
+        room,
+        inspector,
+      });
+    }
+
+    return savedInspection;
+  }
+
+  /**
+   * Handle failed inspection by creating maintenance request and blocking room
+   */
+  private async handleFailedInspection(params: {
+    tenantId: string;
+    room: Room;
+    inspector: User;
+  }) {
+    const { tenantId, room, inspector } = params;
+
+    // Create a maintenance request for the failed inspection
+    await this.maintenanceService.createRequest({
+      tenantId,
+      dto: {
+        roomId: room.id,
+        title: `Room Maintenance Required - Failed Inspection (${room.roomNumber})`,
+        description: 'Room failed housekeeping inspection and requires maintenance before it can be used again.',
+      },
+      user: { userId: inspector.id },
+    });
+
+    // Block the room by changing its status to MAINTENANCE
+    room.status = RoomStatus.MAINTENANCE;
+    await this.roomRepo.save(room);
+  }
+
+  private async markRoomUnavailableForHousekeeping(room: Room) {
+    if (room.status === RoomStatus.OCCUPIED || room.status === RoomStatus.MAINTENANCE) {
+      return;
+    }
+
+    room.status = RoomStatus.MAINTENANCE;
+    await this.roomRepo.save(room);
+  }
+
+  private async releaseRoomAfterHousekeepingIfClear(task: HousekeepingTask) {
+    if (task.room.status !== RoomStatus.MAINTENANCE) {
+      return;
+    }
+
+    const activeHousekeepingTasks = await this.taskRepo.count({
+      where: {
+        tenant: { id: task.tenant.id },
+        room: { id: task.room.id },
+        status: In([
+          HousekeepingStatus.PENDING,
+          HousekeepingStatus.ASSIGNED,
+          HousekeepingStatus.IN_PROGRESS,
+        ]),
+      },
+    });
+    const hasActiveMaintenanceRequest =
+      await this.maintenanceService.hasActiveRequestForRoom(task.tenant.id, task.room.id);
+
+    if (activeHousekeepingTasks === 0 && !hasActiveMaintenanceRequest) {
+      task.room.status = RoomStatus.AVAILABLE;
+      await this.roomRepo.save(task.room);
+    }
+  }
+
+  private isActiveHousekeepingStatus(status: HousekeepingStatus) {
+    return [
+      HousekeepingStatus.PENDING,
+      HousekeepingStatus.ASSIGNED,
+      HousekeepingStatus.IN_PROGRESS,
+    ].includes(status);
   }
 
   async listInspections(tenantId: string) {
@@ -120,5 +229,14 @@ export class HousekeepingService {
       relations: ['room', 'inspector'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  private ensureAssignableHousekeeper(user: User) {
+    const department = String(user.department ?? '').toLowerCase();
+    const roleCanReceiveWork = [UserRole.STAFF, UserRole.MANAGER].includes(user.role);
+
+    if (!user.isActive || !roleCanReceiveWork || department !== 'housekeeping') {
+      throw new BadRequestException('Housekeeping tasks can only be assigned to active housekeeping staff');
+    }
   }
 }

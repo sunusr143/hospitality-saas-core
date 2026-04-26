@@ -14,6 +14,8 @@ import { Tenant } from '../tenants/tenant.entity';
 import { GuestDocument } from './entities/guest-document.entity';
 import { Deposit } from './entities/deposit.entity';
 import { BillingModule } from '../billing/billing.module';
+import { Folio } from '../billing/entities/folio.entity';
+import { MaintenanceRequest } from '../maintenance/entities/maintenance-request.entity';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { BillingModule } from '../billing/billing.module';
       Tenant,
       GuestDocument,
       Deposit,
+      Folio,
+      MaintenanceRequest,
     ]),
     BillingModule,
   ],

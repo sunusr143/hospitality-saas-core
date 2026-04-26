@@ -303,7 +303,7 @@ export class RestaurantService {
       const values = this.buildRowObject(headers, row);
 
       try {
-        const categoryName = this.pickFirst(values, ['category', 'category_name', 'group']);
+        const rawCategoryName = this.pickFirst(values, ['category', 'category_name', 'group']);
         const itemName = this.pickFirst(values, ['item_name', 'name', 'food_item', 'menu_item']);
         const sku = this.pickFirst(values, ['item_code', 'itemcode', 'code', 'sku', 'plu']);
         const description = this.pickFirst(values, ['description', 'desc']) || null;
@@ -324,7 +324,7 @@ export class RestaurantService {
           this.pickFirst(values, ['tax_rate', 'tax', 'gst']),
         );
 
-        if (!categoryName) {
+        if (!rawCategoryName) {
           throw new Error('category is required');
         }
 
@@ -332,6 +332,7 @@ export class RestaurantService {
           throw new Error('item_name is required');
         }
 
+        const categoryName = this.applyOutletLabel(rawCategoryName, dto.outletLabel);
         let category = categoryByName.get(categoryName.trim().toLowerCase());
         if (!category) {
           category = await this.categoryRepository.save(
@@ -586,7 +587,7 @@ export class RestaurantService {
   async listOrders(tenantId: string) {
     return this.orderRepository.find({
       where: { tenant: { id: tenantId } },
-      relations: ['folio', 'createdBy'],
+      relations: ['folio', 'folio.room', 'folio.reservation', 'createdBy'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -594,7 +595,7 @@ export class RestaurantService {
   async getOrder(tenantId: string, orderId: string) {
     const order = await this.orderRepository.findOne({
       where: { id: orderId, tenant: { id: tenantId } },
-      relations: ['folio', 'createdBy'],
+      relations: ['folio', 'folio.room', 'folio.reservation', 'createdBy'],
     });
 
     if (!order) {
@@ -812,6 +813,41 @@ export class RestaurantService {
     return saved;
   }
 
+  async closeOrder(params: { tenantId: string; orderId: string }) {
+    const { tenantId, orderId } = params;
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, tenant: { id: tenantId } },
+      relations: ['tenant', 'createdBy', 'folio'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status === RestaurantOrderStatus.CLOSED) {
+      return order;
+    }
+
+    if (order.status !== RestaurantOrderStatus.POSTED) {
+      throw new BadRequestException('Only posted orders can be printed and closed');
+    }
+
+    order.status = RestaurantOrderStatus.CLOSED;
+    order.lastActionNote = 'Printed and closed.';
+    const saved = await this.orderRepository.save(order);
+    await this.orderEventRepository.save(
+      this.orderEventRepository.create({
+        tenant: { id: tenantId } as Tenant,
+        order: saved,
+        actor: order.createdBy ?? null,
+        eventType: 'CLOSED',
+        notes: 'Printed and closed.',
+      }),
+    );
+    return saved;
+  }
+
   async cancelOrder(params: { tenantId: string; orderId: string; dto?: CancelRestaurantOrderDto }) {
     const { tenantId, orderId, dto } = params;
     const reverse = dto?.reverseFolioCharge ?? true;
@@ -827,6 +863,10 @@ export class RestaurantService {
 
     if (order.status === RestaurantOrderStatus.CANCELLED) {
       return order;
+    }
+
+    if (order.status === RestaurantOrderStatus.CLOSED) {
+      throw new BadRequestException('Closed orders cannot be cancelled');
     }
 
     if (order.status === RestaurantOrderStatus.POSTED && reverse) {
@@ -952,6 +992,24 @@ export class RestaurantService {
     }
 
     throw new Error('is_active must be true/false');
+  }
+
+  private applyOutletLabel(categoryName: string, outletLabel?: string) {
+    const cleanedCategory = categoryName.trim();
+    const cleanedOutlet = outletLabel?.trim();
+
+    if (!cleanedOutlet) {
+      return cleanedCategory;
+    }
+
+    const normalizedCategory = cleanedCategory.toLowerCase();
+    const normalizedOutlet = cleanedOutlet.toLowerCase();
+
+    if (normalizedCategory.startsWith(`${normalizedOutlet} /`)) {
+      return cleanedCategory;
+    }
+
+    return `${cleanedOutlet} / ${cleanedCategory}`;
   }
 
   private parseCsv(input: string) {

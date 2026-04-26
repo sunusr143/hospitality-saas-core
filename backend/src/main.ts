@@ -71,7 +71,14 @@ async function bootstrap(): Promise<void> {
   );
 
   const port = Number(process.env.PORT) || 3000;
-  await app.listen(port);
+  try {
+    await app.listen(port);
+  } catch (error: any) {
+    if (error?.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Stop the running backend or change PORT in backend/.env.`);
+    }
+    throw error;
+  }
 
   console.log(`🚀 Server running on port ${port}`);
 }

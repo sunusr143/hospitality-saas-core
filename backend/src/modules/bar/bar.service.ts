@@ -29,6 +29,7 @@ import { SeedBarDto } from './dto/seed-bar.dto';
 import { FindBarOrdersDto } from './dto/find-bar-orders.dto';
 import { FindBarItemsDto } from './dto/find-bar-items.dto';
 import { UpdateBarOrderDto } from './dto/update-bar-order.dto';
+import { ImportBarItemsDto } from './dto/import-bar-items.dto';
 
 import { Tenant } from '../tenants/tenant.entity';
 import { User } from '../users/user.entity';
@@ -239,6 +240,218 @@ export class BarService {
     return qb.orderBy('item.name', 'ASC').getMany();
   }
 
+  async importItemsFromCsv(params: {
+    tenantId: string;
+    file: { buffer?: Buffer; originalname?: string } | undefined;
+    dto: ImportBarItemsDto;
+  }) {
+    const { tenantId, file, dto } = params;
+
+    if (!file?.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('CSV file is required');
+    }
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new BadRequestException('Invalid tenant');
+    }
+
+    const rows = this.parseCsv(file.buffer.toString('utf8'));
+    if (rows.length === 0) {
+      throw new BadRequestException('CSV file is empty');
+    }
+
+    const headers = rows[0].map((header) => this.normalizeColumnName(header));
+    const dataRows = rows
+      .slice(1)
+      .filter((row) => row.some((value) => value.trim().length > 0));
+
+    if (dataRows.length === 0) {
+      throw new BadRequestException('CSV file has no item rows');
+    }
+
+    const categories = await this.categoryRepository.find({
+      where: { tenant: { id: tenantId } },
+    });
+    const items = await this.itemRepository.find({
+      where: { tenant: { id: tenantId } },
+      relations: ['category'],
+    });
+
+    const categoryByName = new Map(
+      categories.map((category) => [category.name.trim().toLowerCase(), category]),
+    );
+    const itemBySku = new Map<string, BarItem>();
+    const itemByName = new Map<string, BarItem>();
+
+    for (const item of items) {
+      if (item.sku) {
+        itemBySku.set(item.sku.trim().toLowerCase(), item);
+      }
+      itemByName.set(item.name.trim().toLowerCase(), item);
+    }
+
+    const result = {
+      fileName: file.originalname ?? 'upload.csv',
+      totalRows: dataRows.length,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [] as Array<{ row: number; message: string }>,
+      processed: [] as Array<{
+        row: number;
+        status: 'created' | 'updated' | 'skipped';
+        category: string;
+        itemName: string;
+        sku: string | null;
+      }>,
+      expectedColumns: [
+        'category',
+        'item_code',
+        'item_name',
+        'price',
+        'tax_rate',
+        'currency',
+        'description',
+        'is_active',
+      ],
+    };
+
+    for (const [index, row] of dataRows.entries()) {
+      const rowNumber = index + 2;
+      const values = this.buildRowObject(headers, row);
+
+      try {
+        const categoryName = this.pickFirst(values, [
+          'category',
+          'category_name',
+          'group',
+        ]);
+        const itemName = this.pickFirst(values, [
+          'item_name',
+          'name',
+          'drink_name',
+          'menu_item',
+        ]);
+        const sku = this.pickFirst(values, [
+          'item_code',
+          'itemcode',
+          'code',
+          'sku',
+          'plu',
+        ]);
+        const description = this.pickFirst(values, ['description', 'desc']) || null;
+        const currency = (
+          this.pickFirst(values, ['currency']) || dto.defaultCurrency || 'INR'
+        )
+          .trim()
+          .toUpperCase();
+        const isActive = this.parseBoolean(
+          this.pickFirst(values, ['is_active', 'active']),
+          true,
+        );
+        const price = this.parseNumber(
+          this.pickFirst(values, ['price', 'rate', 'amount']),
+          'price',
+        );
+        const taxRate = this.parseTaxRate(
+          this.pickFirst(values, ['tax_rate', 'tax', 'gst']),
+        );
+
+        if (!categoryName) {
+          throw new Error('category is required');
+        }
+
+        if (!itemName) {
+          throw new Error('item_name is required');
+        }
+
+        let category = categoryByName.get(categoryName.trim().toLowerCase());
+        if (!category) {
+          category = await this.categoryRepository.save(
+            this.categoryRepository.create({
+              tenant,
+              name: categoryName.trim(),
+              description: null,
+              sortOrder: categoryByName.size,
+              isActive: true,
+            }),
+          );
+          categoryByName.set(category.name.trim().toLowerCase(), category);
+        }
+
+        const normalizedName = itemName.trim().toLowerCase();
+        const normalizedSku = sku ? sku.trim().toLowerCase() : null;
+        const existing =
+          (normalizedSku ? itemBySku.get(normalizedSku) : undefined) ??
+          itemByName.get(normalizedName);
+
+        if (existing) {
+          existing.category = category;
+          existing.name = itemName.trim();
+          existing.description = description;
+          existing.sku = sku ? sku.trim() : null;
+          existing.price = price;
+          existing.currency = currency;
+          existing.taxRate = taxRate;
+          existing.isActive = isActive;
+          await this.itemRepository.save(existing);
+
+          if (normalizedSku) {
+            itemBySku.set(normalizedSku, existing);
+          }
+          itemByName.set(normalizedName, existing);
+
+          result.updated += 1;
+          result.processed.push({
+            row: rowNumber,
+            status: 'updated',
+            category: category.name,
+            itemName: existing.name,
+            sku: existing.sku,
+          });
+          continue;
+        }
+
+        const item = await this.itemRepository.save(
+          this.itemRepository.create({
+            tenant,
+            category,
+            name: itemName.trim(),
+            description,
+            sku: sku ? sku.trim() : null,
+            price,
+            currency,
+            taxRate,
+            isActive,
+          }),
+        );
+
+        if (item.sku) {
+          itemBySku.set(item.sku.trim().toLowerCase(), item);
+        }
+        itemByName.set(item.name.trim().toLowerCase(), item);
+
+        result.created += 1;
+        result.processed.push({
+          row: rowNumber,
+          status: 'created',
+          category: category.name,
+          itemName: item.name,
+          sku: item.sku,
+        });
+      } catch (error: any) {
+        result.errors.push({
+          row: rowNumber,
+          message: error?.message ?? 'Unknown import error',
+        });
+      }
+    }
+
+    result.skipped = result.errors.length;
+    return result;
+  }
+
   async createOrder(params: {
     tenantId: string;
     dto: CreateBarOrderDto;
@@ -396,6 +609,8 @@ export class BarService {
     const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.folio', 'folio')
+      .leftJoinAndSelect('folio.room', 'room')
+      .leftJoinAndSelect('folio.reservation', 'reservation')
       .leftJoinAndSelect('order.createdBy', 'createdBy')
       .leftJoin('order.tenant', 'tenant')
       .where('tenant.id = :tenantId', { tenantId });
@@ -420,7 +635,7 @@ export class BarService {
   async getOrder(tenantId: string, orderId: string) {
     const order = await this.orderRepository.findOne({
       where: { id: orderId, tenant: { id: tenantId } },
-      relations: ['folio', 'createdBy'],
+      relations: ['folio', 'folio.room', 'folio.reservation', 'createdBy'],
     });
 
     if (!order) {
@@ -638,6 +853,46 @@ export class BarService {
     return saved;
   }
 
+  async closeOrder(params: { tenantId: string; orderId: string }) {
+    const { tenantId, orderId } = params;
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, tenant: { id: tenantId } },
+      relations: ['tenant', 'createdBy', 'folio'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.status === BarOrderStatus.CLOSED) {
+      return order;
+    }
+
+    if (order.status === BarOrderStatus.OPEN && order.folio) {
+      throw new BadRequestException('Post folio orders before closing them');
+    }
+
+    if (![BarOrderStatus.OPEN, BarOrderStatus.POSTED].includes(order.status)) {
+      throw new BadRequestException('Only open or posted orders can be printed and closed');
+    }
+
+    order.status = BarOrderStatus.CLOSED;
+    order.lastActionNote =
+      order.postedAt || order.folio ? 'Printed and closed after folio posting.' : 'Printed and closed as direct bar sale.';
+    const saved = await this.orderRepository.save(order);
+    await this.orderEventRepository.save(
+      this.orderEventRepository.create({
+        tenant: { id: tenantId } as Tenant,
+        order: saved,
+        actor: order.createdBy ?? null,
+        eventType: 'CLOSED',
+        notes: order.lastActionNote,
+      }),
+    );
+    return saved;
+  }
+
   async cancelOrder(params: {
     tenantId: string;
     orderId: string;
@@ -657,6 +912,10 @@ export class BarService {
 
     if (order.status === BarOrderStatus.CANCELLED) {
       return order;
+    }
+
+    if (order.status === BarOrderStatus.CLOSED) {
+      throw new BadRequestException('Closed orders cannot be cancelled');
     }
 
     if (order.status === BarOrderStatus.POSTED && reverse) {
@@ -799,5 +1058,122 @@ export class BarService {
 
   private roundTo2(value: number): number {
     return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private normalizeColumnName(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  private buildRowObject(headers: string[], row: string[]) {
+    const values: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      if (!header) return;
+      values[header] = (row[index] ?? '').trim();
+    });
+    return values;
+  }
+
+  private pickFirst(values: Record<string, string>, keys: string[]) {
+    for (const key of keys) {
+      const value = values[key];
+      if (value && value.trim() !== '') {
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  private parseNumber(rawValue: string, fieldName: string) {
+    if (!rawValue) {
+      throw new Error(`${fieldName} is required`);
+    }
+
+    const parsed = Number(rawValue.replace(/,/g, ''));
+    if (Number.isNaN(parsed) || parsed < 0) {
+      throw new Error(`${fieldName} must be a non-negative number`);
+    }
+
+    return this.roundTo2(parsed);
+  }
+
+  private parseTaxRate(rawValue: string) {
+    if (!rawValue) {
+      return 0;
+    }
+
+    const parsed = Number(rawValue.replace(/%/g, '').trim());
+    if (Number.isNaN(parsed) || parsed < 0) {
+      throw new Error('tax_rate must be a non-negative number');
+    }
+
+    return parsed > 1 ? this.roundTo2(parsed / 100) : this.roundTo2(parsed);
+  }
+
+  private parseBoolean(rawValue: string, fallback: boolean) {
+    if (!rawValue) {
+      return fallback;
+    }
+
+    const normalized = rawValue.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'active'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'inactive'].includes(normalized)) {
+      return false;
+    }
+
+    throw new Error('is_active must be true/false');
+  }
+
+  private parseCsv(input: string) {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentValue = '';
+    let inQuotes = false;
+
+    for (let index = 0; index < input.length; index += 1) {
+      const char = input[index];
+      const next = input[index + 1];
+
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          currentValue += '"';
+          index += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        currentRow.push(currentValue);
+        currentValue = '';
+        continue;
+      }
+
+      if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && next === '\n') {
+          index += 1;
+        }
+        currentRow.push(currentValue);
+        rows.push(currentRow);
+        currentRow = [];
+        currentValue = '';
+        continue;
+      }
+
+      currentValue += char;
+    }
+
+    if (currentValue.length > 0 || currentRow.length > 0) {
+      currentRow.push(currentValue);
+      rows.push(currentRow);
+    }
+
+    return rows;
   }
 }

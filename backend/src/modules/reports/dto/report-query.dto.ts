@@ -3,7 +3,7 @@ File Name: report-query.dto.ts
 Path: src/modules/reports/dto/report-query.dto.ts
 */
 
-import { IsDateString } from 'class-validator';
+import { IsDateString, IsOptional, IsString } from 'class-validator';
 
 export class ReportQueryDto {
   @IsDateString()
@@ -11,4 +11,8 @@ export class ReportQueryDto {
 
   @IsDateString()
   to: string;
+
+  @IsOptional()
+  @IsString()
+  tenantCode?: string;
 }

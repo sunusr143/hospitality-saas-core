@@ -6,8 +6,17 @@
     "demo:setup": "node scripts/install-local.mjs",
     "demo": "node scripts/demo.mjs",
     "dev": "node scripts/dev-local.mjs",
+    "build": "npm --prefix backend run build && npm --prefix ui run build",
+    "prod": "node scripts/prod-local.mjs",
     "dev:backend": "npm --prefix backend run start:dev",
-    "dev:ui": "npm --prefix ui run dev -- --host 0.0.0.0"
+    "prod:backend": "npm --prefix backend run start:prod",
+    "dev:ui": "npm --prefix ui run dev -- --host 0.0.0.0",
+    "prod:ui": "npm --prefix ui run preview -- --host 0.0.0.0",
+    "setup:demo": "npm --prefix backend run setup:demo",
+    "setup:production": "npm --prefix backend run setup:production",
+    "setup:super-user": "npm --prefix backend run setup:super-user",
+    "backup:db": "bash ./scripts/backup-postgres.sh",
+    "restore:db": "bash ./scripts/restore-postgres.sh"
   },
   "dependencies": {
     "@nestjs/typeorm": "^11.0.0",

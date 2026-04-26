@@ -21,6 +21,8 @@ This document supplements `INSTALLATION.md` with operational deployment guidance
 ### Backups
 - Daily `pg_dump` to local disk + external copy
 - Keep at least 7–14 days of backups
+- Use repo scripts: `scripts/backup-postgres.sh` and `scripts/restore-postgres.sh`
+- Validate restore into a non-production database every week
 
 ---
 
@@ -63,4 +65,3 @@ This document supplements `INSTALLATION.md` with operational deployment guidance
 1. Roll back app to previous build
 2. Revert migrations only if strictly necessary
 3. Restore database snapshot if required
-

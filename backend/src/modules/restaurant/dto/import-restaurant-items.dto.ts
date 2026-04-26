@@ -5,4 +5,9 @@ export class ImportRestaurantItemsDto {
   @IsString()
   @MaxLength(10)
   defaultCurrency?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  outletLabel?: string;
 }

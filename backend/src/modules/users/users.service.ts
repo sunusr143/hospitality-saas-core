@@ -12,6 +12,8 @@ import { User } from './user.entity';
 import { Tenant } from '../tenants/tenant.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { FindUsersDto } from './dto/find-users.dto';
+import { UserRole } from './enums/user-role.enum';
+import { hasPlatformAccess } from '../../common/utils/platform-access';
 
 @Injectable()
 export class UsersService {
@@ -26,13 +28,25 @@ export class UsersService {
   /**
    * Create a new user (ADMIN only via controller RBAC)
    */
-  async createUser(dto: CreateUserDto): Promise<User> {
+  async createUser(
+    dto: CreateUserDto,
+    actor: { role: UserRole; tenantCode?: string; isPlatformTenant?: boolean },
+  ): Promise<User> {
+    const targetTenantCode = dto.tenantCode.toUpperCase();
     const tenant = await this.tenantRepository.findOne({
-      where: { code: dto.tenantCode },
+      where: { code: targetTenantCode },
     });
 
     if (!tenant) {
       throw new BadRequestException('Invalid tenant');
+    }
+
+    if (dto.role === UserRole.SUPER_USER && actor.role !== UserRole.SUPER_USER) {
+      throw new BadRequestException('Only SUPER_USER can create another SUPER_USER');
+    }
+
+    if (!hasPlatformAccess(actor) && targetTenantCode !== String(actor.tenantCode ?? '').toUpperCase()) {
+      throw new BadRequestException('You can only create users for your current hotel');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 12);
@@ -58,9 +72,16 @@ export class UsersService {
   /**
    * Fetch users (optionally filtered by tenant)
    */
-  async findAll(query?: FindUsersDto): Promise<User[]> {
-    const where = query?.tenantCode
-      ? { tenant: { code: query.tenantCode } }
+  async findAll(
+    query?: FindUsersDto,
+    actor?: { role: UserRole; tenantCode?: string; isPlatformTenant?: boolean },
+  ): Promise<User[]> {
+    const targetTenantCode = hasPlatformAccess(actor)
+      ? query?.tenantCode?.toUpperCase()
+      : String(actor?.tenantCode ?? '').toUpperCase();
+
+    const where = targetTenantCode
+      ? { tenant: { code: targetTenantCode } }
       : {};
 
     return this.userRepository.find({
@@ -87,9 +108,65 @@ export class UsersService {
     });
   }
 
-  async updateStatus(tenantCode: string, userId: string, isActive: boolean): Promise<User> {
+  async findActiveSuperUser(): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: {
+        role: UserRole.SUPER_USER,
+        isActive: true,
+      },
+      relations: ['tenant'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async configureSuperUserRecovery(params: {
+    userId: string;
+    questionOne: string;
+    questionTwo: string;
+    answerOne: string;
+    answerTwo: string;
+    recoveryKey: string;
+  }): Promise<User> {
+    const user = await this.findById(params.userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== UserRole.SUPER_USER) {
+      throw new BadRequestException('Recovery setup is available only for SUPER_USER');
+    }
+
+    user.superUserRecoveryQuestionOne = params.questionOne.trim();
+    user.superUserRecoveryQuestionTwo = params.questionTwo.trim();
+    user.superUserRecoveryAnswerHashOne = await bcrypt.hash(params.answerOne, 12);
+    user.superUserRecoveryAnswerHashTwo = await bcrypt.hash(params.answerTwo, 12);
+    user.superUserRecoveryKeyHash = await bcrypt.hash(params.recoveryKey, 12);
+    user.superUserRecoveryConfiguredAt = new Date();
+
+    return this.userRepository.save(user);
+  }
+
+  async updatePassword(userId: string, newPassword: string): Promise<User> {
+    const user = await this.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    return this.userRepository.save(user);
+  }
+
+  async updateStatus(
+    actor: { role: UserRole; tenantCode?: string; isPlatformTenant?: boolean },
+    userId: string,
+    isActive: boolean,
+  ): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id: userId, tenant: { code: tenantCode } },
+      where: hasPlatformAccess(actor)
+        ? { id: userId }
+        : { id: userId, tenant: { code: actor.tenantCode } },
       relations: ['tenant'],
     });
 
@@ -97,18 +174,31 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    if (user.role === UserRole.SUPER_USER && !isActive) {
+      throw new BadRequestException('SUPER_USER accounts cannot be deactivated');
+    }
+
     user.isActive = isActive;
     return this.userRepository.save(user);
   }
 
-  async removeUser(tenantCode: string, userId: string): Promise<void> {
+  async removeUser(
+    actor: { role: UserRole; tenantCode?: string; isPlatformTenant?: boolean },
+    userId: string,
+  ): Promise<void> {
     const user = await this.userRepository.findOne({
-      where: { id: userId, tenant: { code: tenantCode } },
+      where: hasPlatformAccess(actor)
+        ? { id: userId }
+        : { id: userId, tenant: { code: actor.tenantCode } },
       relations: ['tenant'],
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    if (user.role === UserRole.SUPER_USER) {
+      throw new BadRequestException('SUPER_USER accounts cannot be deleted');
     }
 
     if (user.role === 'ADMIN' && user.email === 'admin@sunu.com') {

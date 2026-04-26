@@ -18,5 +18,6 @@ import { RatePlan } from '../rate-plans/entities/rate-plan.entity';
   imports: [TypeOrmModule.forFeature([RateCalendar, Availability, Restriction, Tenant, RatePlan])],
   controllers: [RmsController],
   providers: [RmsService],
+  exports: [RmsService],
 })
 export class RmsModule {}

@@ -17,6 +17,7 @@
     "seed:all": "node -r ts-node/register src/scripts/seed.ts",
     "setup:demo": "node -r ts-node/register src/scripts/setup-demo.ts",
     "setup:production": "node -r ts-node/register src/scripts/setup-production.ts",
+    "setup:super-user": "node -r ts-node/register src/scripts/setup-super-user.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:ci": "npm run build && npm test -- --runInBand && npm run test:e2e -- --runInBand",

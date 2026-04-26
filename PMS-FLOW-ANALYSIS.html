@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PMS Flow Analysis & Optimization Guide</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { 
+            size: A4;
+            margin: 1cm;
+        }
+        html, body { 
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+        }
+        body { 
+            background: #ecf0f1;
+            padding: 20px;
+        }
+        .container { 
+            max-width: 210mm;
+            height: 297mm;
+            margin: 0 auto 20px;
+            background: white;
+            padding: 20mm;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* Typography */
+        h1 { 
+            color: #1976d2;
+            font-size: 2.5em;
+            margin: 40px 0 20px 0;
+            border-bottom: 4px solid #1976d2;
+            padding-bottom: 15px;
+            page-break-after: avoid;
+        }
+        h2 { 
+            color: #1565c0;
+            font-size: 1.8em;
+            margin: 35px 0 15px 0;
+            border-left: 5px solid #1976d2;
+            padding-left: 15px;
+            page-break-after: avoid;
+        }
+        h3 { 
+            color: #2c5aa0;
+            font-size: 1.3em;
+            margin: 20px 0 10px 0;
+            page-break-after: avoid;
+        }
+        h4 {
+            color: #34495e;
+            font-size: 1.05em;
+            margin: 15px 0 8px 0;
+            font-weight: 600;
+            page-break-after: avoid;
+        }
+        p { 
+            margin: 12px 0;
+            text-align: justify;
+        }
+        
+        /* Code and Pre */
+        pre {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-left: 4px solid #1976d2;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #d73a49;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+        li { 
+            margin: 8px 0;
+            line-height: 1.8;
+        }
+        
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            border: 1px solid #bdc3c7;
+            page-break-inside: avoid;
+        }
+        th {
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #bdc3c7;
+        }
+        td {
+            padding: 10px 12px;
+            border: 1px solid #bdc3c7;
+        }
+        tr:nth-child(even) { background: #f9f9f9; }
+        
+        /* Special Sections */
+        .header-section {
+            page-break-after: always;
+        }
+        .title-page {
+            border-bottom: 3px solid #1976d2;
+            padding-bottom: 30px;
+            margin-bottom: 30px;
+        }
+        .title-page h1 {
+            border: none;
+            margin: 0 0 10px 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2em;
+            margin: 10px 0 20px 0;
+        }
+        .metadata {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        
+        /* Highlighted Boxes */
+        .issues-critical {
+            background: #fadbd8;
+            border-left: 5px solid #c0392b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+        .issues-medium {
+            background: #fdebd0;
+            border-left: 5px solid #e67e22;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+        .issues-low {
+            background: #d5f4e6;
+            border-left: 5px solid #27ae60;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            page-break-inside: avoid;
+        }
+        
+        /* TOC and Metadata */
+        .toc {
+            page-break-after: always;
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        .toc ul { list-style-position: inside; }
+        
+        /* Footer */
+        .page-number {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.9em;
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        /* Print Styles */
+        @media print {
+            body { 
+                background: white;
+                padding: 0;
+            }
+            .container {
+                max-width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                page-break-after: always;
+                page-break-before: avoid;
+                height: auto;
+            }
+            h1 { page-break-before: always; }
+            table, .issues-critical, .issues-medium, .issues-low { page-break-inside: avoid; }
+            a { color: #1976d2; text-decoration: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="title-page">
+        <h1>PMS Flow Analysis & Optimization Guide</h1>
+        <p class="subtitle">Property Management System - Current State & Comprehensive Optimization Strategy</p>
+        <div class="metadata">
+            <p><strong>Generated:</strong> March 29, 2026</p>
+            <p><strong>Status:</strong> Comprehensive Architecture Analysis Complete</p>
+            <p><strong>Repository:</strong> hospitality-saas-core</p>
+            <p><strong>Branch:</strong> feat-full-billing-and--other-modules-with-dynamic-room-charges</p>
+            <p><strong>Document Type:</strong> Technical Architecture & Optimization Blueprint</p>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <h2>Executive Summary</h2>
+    <p>This document provides a comprehensive analysis of the Property Management System (PMS) architecture, identifying critical issues in billing and reservation flows, and providing a detailed optimization strategy with implementation roadmap.</p>
+    
+    <h3>Key Findings:</h3>
+    <ul>
+        <li><strong>13 Core Modules:</strong> Integrated into a tenant-isolated, multi-tenant SaaS architecture</li>
+        <li><strong>Critical Issues Found:</strong> Dynamic pricing gaps, missing nightly charge accumulation, manual approval bottlenecks</li>
+        <li><strong>Revenue Impact:</strong> Existing issues may cause billing discrepancies and revenue leakage</li>
+        <li><strong>Optimization Timeline:</strong> ~2 weeks for core fixes, 4-6 weeks for comprehensive enhancement</li>
+    </ul>
+    
+    <h3>Table of Contents:</h3>
+    <div class="toc">
+        <ol>
+            <li>Current PMS State Architecture</li>
+            <li>Detailed Reservation Lifecycle Flow</li>
+            <li>Data Entities & Database Schema</li>
+            <li>Identified Issues & Bottlenecks (Prioritized)</li>
+            <li>Optimization Strategy & Implementation Plan</li>
+            <li>Dependency Analysis & Roadmap</li>
+            <li>Architectural Recommendations</li>
+            <li>Testing Strategy</li>
+            <li>Deployment Checklist</li>
+            <li>Metrics & Monitoring</li>
+            <li>Implementation Summary & ROI</li>
+        </ol>
+    </div>
+</div>
+<div class="container">
+<h1>PMS Flow Analysis & Optimization Guide</h1>
+<p><strong>Current Date:</strong> March 29, 2026  </p>
+<p><strong>Status:</strong> Comprehensive Analysis Complete  </p>
+<p><strong>Repository:</strong> feat-full-billing-and--other-modules-with-dynamic-room-charges</p>
+<p>---</p>
+<h2>1. CURRENT PMS STATE</h2>
+<h3>Architecture Overview</h3>
+<p>The PMS operates as a <strong>13-module, tenant-isolated, event-driven system</strong> with strong separation of concerns:</p>
+<p><strong>Core Modules:</strong></p>
+<li>**Reservations** → Guest bookings (PENDING → CONFIRMED → CHECKED_IN → CHECKED_OUT)</li>
+<li>**FrontDesk** → Check-in/check-out operations</li>
+<li>**Guests** → Guest profiles with KYC data</li>
+<li>**Rooms** → Physical room inventory + status management</li>
+<li>**Billing/Folios** → Financial tracking (charges, taxes, payments)</li>
+<li>**Payments** → Payment processing + reconciliation</li>
+<li>**RMS** → Revenue management (rates, availability, restrictions)</li>
+<li>**RatePlans** → Pricing configuration</li>
+<li>**Housekeeping** → Room maintenance tasks</li>
+<li>**Accounting** → Ledger entries</li>
+<li>**AuditLogs** → Operation audit trails</li>
+<li>**Taxes** → Tax rule engine</li>
+<li>**Notifications** → Guest communications</li>
+<p>---</p>
+<h2>2. CURRENT RESERVATION FLOW</h2>
+<h3>Phase 1: Booking (CREATE)</h3>
+<p>POST /reservations</p>
+<p>├─ Input: checkInDate, checkOutDate, roomId, guestEmail, guestName</p>
+<p>├─ Processing:</p>
+<p>│  ├─ Check room availability (date overlap query)</p>
+<p>│  ├─ Lookup guest by email (case-insensitive, unique per tenant)</p>
+<p>│  └─ Create guest if not exists</p>
+<p>├─ Database: Insert Reservation with status=PENDING</p>
+<p>└─ Output: Reservation object (awaiting confirmation)</p>
+<p><strong>Key Business Rules:</strong></p>
+<li>Room must be AVAILABLE status</li>
+<li>Email must be unique per tenant</li>
+<li>Reservation indexed by [tenant, room, checkInDate, checkOutDate]</li>
+<p>---</p>
+<h3>Phase 2: Confirmation</h3>
+<p>PATCH /reservations/:id/status</p>
+<p>├─ Input: status=CONFIRMED</p>
+<p>├─ Processing: Manual staff approval (no auto-approval currently)</p>
+<p>└─ Status: PENDING → CONFIRMED</p>
+<p><strong>Current Limitation:</strong></p>
+<li>⚠️ No automatic confirmation logic</li>
+<li>Requires manual staff intervention</li>
+<li>No webhook/event trigger on confirmation</li>
+<p>---</p>
+<h3>Phase 3: Check-In</h3>
+<p>POST /frontdesk/checkin</p>
+<p>├─ Input: reservationId</p>
+<p>├─ Pre-conditions:</p>
+<p>│  ├─ Reservation exists</p>
+<p>│  ├─ Status = CONFIRMED</p>
+<p>│  └─ Room still AVAILABLE</p>
+<p>├─ Processing:</p>
+<p>│  ├─ Verify guest documents (optional)</p>
+<p>│  ├─ Collect deposit (optional)</p>
+<p>│  ├─ Create Folio with status=OPEN</p>
+<p>│  ├─ Update Reservation → status=CHECKED_IN</p>
+<p>│  └─ Update Room → status=OCCUPIED</p>
+<p>├─ Output: Check-in confirmation</p>
+<p>└─ Triggers: Housekeeping task NOT auto-created on check-in</p>
+<p><strong>Current Issues:</strong></p>
+<p>1. ⚠️ Folio creation timing unclear (manual vs. automatic)</p>
+<p>2. ⚠️ No explicit charge line items created at check-in</p>
+<p>3. ✓ Document verification available but optional</p>
+<p>---</p>
+<h3>Phase 4: Stay Period</h3>
+<p>During Stay (CHECKED_IN status)</p>
+<p>├─ Add Line Items to Folio:</p>
+<p>│  ├─ POST /folios/:folioId/line-items</p>
+<p>│  ├─ Types: ROOM_CHARGE, TAX_GST, SERVICE_CHARGE, PAYMENT, ADJUSTMENT, BAR_ORDER, LAUNDRY, etc.</p>
+<p>│  ├─ Each includes: description, quantity, unitPrice, totalAmount</p>
+<p>│  └─ Unique constraints: [folio, type] for ROOM_CHARGE & TAX_GST (one per type)</p>
+<p>└─ Multiple payments can be posted</p>
+<p><strong>Line Item Accumulation:</strong></p>
+<li>Room charges (typically 1 per night)</li>
+<li>Restaurant/Bar charges (multiple possible, if integrated)</li>
+<li>Service charges (resort fees, etc.)</li>
+<li>Taxes (GST/VAT per jurisdiction)</li>
+<li>Adjustments (discounts, complimentary items)</li>
+<p><strong>Current Limitation:</strong></p>
+<li>⚠️ No automatic nightly room charge creation during stay</li>
+<li>Must manually add each day's charge</li>
+<li>No scheduler/batch job to auto-charge</li>
+<p>---</p>
+<h3>Phase 5: Check-Out</h3>
+<p>POST /frontdesk/checkout</p>
+<p>├─ Pre-conditions:</p>
+<p>│  ├─ Reservation → status=CHECKED_IN</p>
+<p>│  └─ Folio → status=OPEN or IN_PROGRESS</p>
+<p>├─ Processing Flow:</p>
+<p>│  1. Auto Room-Night Charge:</p>
+<p>│     ├─ Query RMS rates OR fallback to RatePlan.findLatestActiveForTenant()</p>
+<p>│     ├─ Calculate: (checkOut - checkIn) nights × rate</p>
+<p>│     ├─ Create line item: ROOM_CHARGE with total amount</p>
+<p>│     └─ Add to Folio</p>
+<p>│  2. Close Folio:</p>
+<p>│     ├─ Change status: OPEN/IN_PROGRESS → CLOSED</p>
+<p>│     ├─ Set closedAt timestamp</p>
+<p>│     └─ Lock against further modifications</p>
+<p>│  3. Update States:</p>
+<p>│     ├─ Reservation → status=CHECKED_OUT</p>
+<p>│     ├─ Room → status=AVAILABLE</p>
+<p>│     └─ Create Housekeeping task: room=OCCUPIED</p>
+<p>└─ Output: Checkout confirmation + final bill summary</p>
+<p><strong>Current Auto-Charge Logic:</strong></p>
+<li>Triggered: ON checkout action</li>
+<li>Rate Source: RatePlan.findLatestActiveForTenant() (picks latest ACTIVE plan)</li>
+<li>Calculation: Simple (nights × rate) — no seasonal/dynamic pricing applied at checkout</li>
+<p><strong>Issues:</strong></p>
+<p>1. ⚠️ Rate lookup uses "latest active" (may not match booking date)</p>
+<p>2. ⚠️ No dynamic pricing applied from RMS daily rates</p>
+<p>3. ⚠️ Single unified charge (not per-night breakdown)</p>
+<p>4. ✓ Housekeeping task created (to be verified)</p>
+<p>---</p>
+<h3>Phase 6: Payment Collection</h3>
+<p>POST /folios/:folioId/payments</p>
+<p>├─ Input:</p>
+<p>│  ├─ paymentMethod: CASH | CARD | BANK_TRANSFER | CREDIT | OTHER</p>
+<p>│  ├─ amount: decimal</p>
+<p>│  ├─ idempotency-key: UUID (optional, prevents duplicates)</p>
+<p>│  └─ paymentReference: string (unique per folio × type)</p>
+<p>├─ Idempotency Check:</p>
+<p>│  └─ Unique index: [folio, paymentReference] ensures no double-posting</p>
+<p>├─ Processing:</p>
+<p>│  ├─ Create FolioLineItem with type=PAYMENT</p>
+<p>│  ├─ Amount stored as negative (credit to guest account)</p>
+<p>│  ├─ Optional provider integration (Stripe, PayPal, etc.)</p>
+<p>│  └─ Mark as unreconciled (pending bank confirmation)</p>
+<p>└─ Output: Payment confirmation with reference</p>
+<p><strong>Current Capabilities:</strong></p>
+<li>✓ Multiple payment methods supported</li>
+<li>✓ Partial payments allowed (multiple line items)</li>
+<li>✓ Idempotency via paymentReference</li>
+<p><strong>Limitation:</strong></p>
+<li>⚠️ Optional provider integration (may need expansion)</li>
+<p>---</p>
+<h3>Phase 7: Payment Reconciliation</h3>
+<p>POST /payments/reconcile</p>
+<p>├─ Input:</p>
+<p>│  ├─ paymentTransactionId</p>
+<p>│  └─ providerReference (from bank/payment gateway)</p>
+<p>├─ Processing:</p>
+<p>│  ├─ Create PaymentReconciliation record</p>
+<p>│  ├─ Link to PaymentTransaction</p>
+<p>│  ├─ Update status: pending → completed/failed</p>
+<p>│  └─ Create Ledger entry (AuditLog + Accounting)</p>
+<p>└─ Output: Reconciliation confirmation</p>
+<p><strong>Accounting Trail:</strong></p>
+<li>Payment posted → AuditLog entry</li>
+<li>Reconciliation → Ledger entry (for financial reporting)</li>
+<p>---</p>
+<h2>3. DATA ENTITIES & RELATIONSHIPS</h2>
+<h3>Core Entities</h3>
+<p>---</p>
+<h2>4. IDENTIFIED ISSUES & BOTTLENECKS</h2>
+<h3>🔴 HIGH PRIORITY</h3>
+<h4>Issue 1: Lack of Dynamic Pricing at Checkout</h4>
+<p><strong>Problem:</strong></p>
+<li>Checkout auto-charge uses `findLatestActiveForTenant()` — picks **one active rate** regardless of booking dates</li>
+<li>No per-day rate variation applied</li>
+<li>Example: RMS set $100/night Jan-Mar, $150/night Apr-Jun, but checkout applies same rate</li>
+<p><strong>Impact:</strong></p>
+<li>Revenue loss if rates are seasonal/dynamic</li>
+<li>Billing doesn't match rates offered during booking</li>
+<p><strong>Solution:</strong> (See Optimizations section)</p>
+<p>---</p>
+<h4>Issue 2: No Automatic Daily Charge Accumulation</h4>
+<p><strong>Problem:</strong></p>
+<li>Room charges only applied at checkout</li>
+<li>No line items created per-night during stay</li>
+<li>Folio shows zero balance until guest checks out</li>
+<p><strong>Impact:</strong></p>
+<li>Guest sees no interim billing statements</li>
+<li>Staff can't monitor accrual during multi-day stays</li>
+<li>No daily reconciliation available</li>
+<p><strong>Solution:</strong> Implement scheduled nightly charge job</p>
+<p>---</p>
+<h4>Issue 3: Manual Confirmation Bottleneck</h4>
+<p><strong>Problem:</strong></p>
+<li>All reservations require manual staff confirmation</li>
+<li>No auto-confirmation for pre-paid or trusted sources</li>
+<li>No webhook on confirmation event</li>
+<p><strong>Impact:</strong></p>
+<li>Operational overhead</li>
+<li>Delays in reservation processing</li>
+<li>No integration point for OTA/channel managers</li>
+<p><strong>Solution:</strong> Add conditional auto-confirmation rules</p>
+<p>---</p>
+<h4>Issue 4: Folio Creation Timing Ambiguity</h4>
+<p><strong>Problem:</strong></p>
+<li>Unclear if folio created at: booking, confirmation, or check-in</li>
+<li>No explicit endpoint to manage folio lifecycle</li>
+<li>Manual folio creation exists but restricted to ADMIN</li>
+<p><strong>Impact:</strong></p>
+<li>Confusion for integrating systems</li>
+<li>Potential for missing folios</li>
+<li>Can't plan billing ahead of check-in</li>
+<p><strong>Solution:</strong> Explicit folio creation at confirmation (optional, see optimizations)</p>
+<p>---</p>
+<h3>🟡 MEDIUM PRIORITY</h3>
+<h4>Issue 5: No Multi-Currency/Exchange Rate Handling</h4>
+<p><strong>Problem:</strong></p>
+<li>Folio has `currency` field, but no exchange rate logic</li>
+<li>International guests charged in hotel's primary currency</li>
+<li>No rate conversion at post-checkout</li>
+<p><strong>Impact:</strong></p>
+<li>Incorrect billing for international guests</li>
+<li>No support for multi-currency display</li>
+<p><strong>Solution:</strong> Add currency conversion service + rates table</p>
+<p>---</p>
+<h4>Issue 6: Tax Calculation Timing</h4>
+<p><strong>Problem:</strong></p>
+<li>Tax is added as line item (TAX_GST)</li>
+<li>Unique constraint: only 1 TAX_GST per folio (may not support multiple tax jurisdictions)</li>
+<li>No breakdown by tax type (GST vs. VAT vs. local taxes)</li>
+<p><strong>Impact:</strong></p>
+<li>Limited to single tax rate per folio</li>
+<li>Complex jurisdictions unsupported</li>
+<p><strong>Solution:</strong> Change constraint to allow [folio, taxType, taxRate] combination</p>
+<p>---</p>
+<h4>Issue 7: Room Move Operations</h4>
+<p><strong>Problem:</strong></p>
+<li>`POST /front-desk/room-move` exists but underspecified</li>
+<li>No billing adjustment for room moves</li>
+<li>Room status updates unclear</li>
+<p><strong>Impact:</strong></p>
+<li>Guest moves (upgrades/downgrades) don't adjust pricing</li>
+<li>Final bill may not reflect room change</li>
+<p><strong>Solution:</strong> Implement room change billing logic</p>
+<p>---</p>
+<h4>Issue 8: No Pre-Arrival Operations</h4>
+<p><strong>Problem:</strong></p>
+<li>No deposit pre-charge before arrival</li>
+<li>No rate lock confirmation</li>
+<li>No pre-authorization for card</li>
+<p><strong>Impact:</strong></p>
+<li>Higher chargeback risk</li>
+<li>No payment security before arrival</li>
+<li>Guests can modify booking without deposit</li>
+<p><strong>Solution:</strong> Add pre-arrival billing phase</p>
+<p>---</p>
+<h4>Issue 9: Weak Availability Checking</h4>
+<p><strong>Problem:</strong></p>
+<li>Availability checked via `SELECT WHERE checkInDate < :checkout AND checkOutDate > :checkin`</li>
+<li>No account for room status changes during booking window</li>
+<li>No reservation hold expiry</li>
+<p><strong>Impact:</strong></p>
+<li>Race condition if rooms booked simultaneously</li>
+<li>Booking window not enforced</li>
+<p><strong>Solution:</strong> Add reservation holds + expiry</p>
+<p>---</p>
+<h3>🟢 LOW PRIORITY (Quality/Performance)</h3>
+<h4>Issue 10: No Rate Caching</h4>
+<p><strong>Problem:</strong></p>
+<li>RatePlan lookup runs on every checkout</li>
+<li>RMS rates queried from DB without caching</li>
+<p><strong>Impact:</strong></p>
+<li>DB load increases during peak operations</li>
+<li>Slow checkout if DB is stressed</li>
+<p><strong>Solution:</strong> Implement Redis caching with TTL</p>
+<p>---</p>
+<h4>Issue 11: Missing Partial Checkout</h4>
+<p><strong>Problem:</strong></p>
+<li>Checkout is all-or-nothing</li>
+<li>Can't handle early departure billing adjustments</li>
+<li>No mid-stay modifications</li>
+<p><strong>Impact:</strong></p>
+<li>Inflexible for operational edge cases</li>
+<p><strong>Solution:</strong> Add early checkout adjustment logic</p>
+<p>---</p>
+<h4>Issue 12: No Integration with Other Modules</h4>
+<p><strong>Problem:</strong></p>
+<li>Bar/Restaurant charges must be manually added</li>
+<li>Spa charges not integrated</li>
+<li>Laundry service billing manual</li>
+<p><strong>Impact:</strong></p>
+<li>Extra staff effort to aggregate all charges</li>
+<li>Charges can be forgotten</li>
+<p><strong>Solution:</strong> Add event-driven charge posting from other modules</p>
+<p>---</p>
+<p>---</p>
+<h2>5. OPTIMIZATION STRATEGY</h2>
+<h3>Tier 1: Critical Fixes (Implement Immediately)</h3>
+<h4>1.1 Fix Dynamic Pricing at Checkout</h4>
+<p><strong>Change:</strong> Use per-date RMS rates instead of single RatePlan rate</p>
+<p>// CURRENT (❌ Wrong)</p>
+<p>const rate = await this.ratePlansService.findLatestActiveForTenant(tenantId);</p>
+<p>const charge = (nights) * rate.basePrice;</p>
+<p>// OPTIMIZED (✓ Correct)</p>
+<p>const dailyRates = await this.rmsService.findRatesByDateRange(</p>
+<p>  tenantId, roomId, checkInDate, checkOutDate</p>
+<p>);</p>
+<p>const charge = dailyRates.reduce((sum, day) => sum + day.rate, 0);</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Accurate billing matching booking date rates</li>
+<li>✓ Support for seasonal pricing</li>
+<li>✓ Revenue integrity</li>
+<p><strong>Implementation:</strong></p>
+<li>Modify `foliosService.addRoomNightCharge()`</li>
+<li>Query RMS daily rates first</li>
+<li>Fallback to RatePlan if RMS rates not found</li>
+<li>Create per-day line items (or single aggregated item with breakdown)</li>
+<p><strong>Effort:</strong> 3-4 hours</p>
+<p>---</p>
+<h4>1.2 Implement Nightly Charge Accumulation</h4>
+<p><strong>Change:</strong> Create scheduled job to post nightly charges during stay</p>
+<p>// New Scheduled Job (runs daily at 2 AM)</p>
+<p>async chargeNightlyRoomCharges() {</p>
+<p>  const activeReservations = await this.getCheckedInReservations();</p>
+<p>  for (const reservation of activeReservations) {</p>
+<p>    const folio = await this.foliosService.getFolioForReservation(reservation.id);</p>
+<p>    const rate = await this.rmsService.getDailyRate(</p>
+<p>      reservation.room.id, </p>
+<p>      today</p>
+<p>    );</p>
+<p>    await this.foliosService.addLineItem(folio.id, {</p>
+<p>      type: 'ROOM_CHARGE',</p>
+<p>      description: <code>Room Charge - ${today}</code>,</p>
+<p>      amount: rate,</p>
+<p>      dayOf: today</p>
+<p>    });</p>
+<p>  }</p>
+<p>}</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Guest sees interim charges</li>
+<li>✓ Daily reconciliation possible</li>
+<li>✓ Accurate multi-night billing</li>
+<p><strong>Implementation:</strong></p>
+<li>Use NestJS `@Cron()` decorator</li>
+<li>Create separate line item per day (change unique constraint to [folio, type, dayOf])</li>
+<li>Update checkout to not double-charge</li>
+<p><strong>Effort:</strong> 4-5 hours</p>
+<p>---</p>
+<h4>1.3 Add Conditional Auto-Confirmation</h4>
+<p><strong>Change:</strong> Allow auto-confirm certain reservation types</p>
+<p>// Pre-paid or trusted OTA bookings</p>
+<p>async confirmReservation(reservationId: string) {</p>
+<p>  const reservation = await this.getReservation(reservationId);</p>
+<p>  if (reservation.source === 'DIRECT_PAY' || </p>
+<p>      reservation.source === 'TRUSTED_OTA') {</p>
+<p>    // Auto-confirm</p>
+<p>    await this.updateStatus(CONFIRMED);</p>
+<p>    await this.eventEmitter.emit('reservation.confirmed', reservation);</p>
+<p>  } else {</p>
+<p>    // Manual confirmation required</p>
+<p>    await this.changeStatus(PENDING_CONFIRMATION);</p>
+<p>  }</p>
+<p>}</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Reduce staff burden</li>
+<li>✓ Faster OTA integrations</li>
+<li>✓ Event-driven architecture</li>
+<p><strong>Implementation:</strong></p>
+<li>Add `source` field to Reservation</li>
+<li>Add confirmation config (auto-confirm list)</li>
+<li>Emit `reservation.confirmed` event</li>
+<li>Listeners: start check-in prep, notify housekeeping</li>
+<p><strong>Effort:</strong> 2-3 hours</p>
+<p>---</p>
+<h4>1.4 Explicitize Folio Creation</h4>
+<p><strong>Change:</strong> Create folio at confirmation, not check-in</p>
+<p>// When reservation confirmed:</p>
+<p>async onReservationConfirmed(reservation: Reservation) {</p>
+<p>  const folio = await this.foliosService.createFolio({</p>
+<p>    reservationId: reservation.id,</p>
+<p>    status: 'PREPARED',  // New status: not yet OPEN</p>
+<p>    guestNameSnapshot: reservation.guestName,</p>
+<p>    currency: 'USD'  // From hotel config</p>
+<p>  });</p>
+<p>  // Pre-calculate and show estimated charges</p>
+<p>  const estimatedCharges = await this.estimateCharges(reservation);</p>
+<p>  await this.notificationService.sendEstimate(folio, estimatedCharges);</p>
+<p>}</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Clear folio lifecycle</li>
+<li>✓ Guest sees estimate at confirmation</li>
+<li>✓ Integrate with payment pre-auth</li>
+<p><strong>Folio Status Lifecycle:</strong></p>
+<p>PREPARED (confirmation) </p>
+<p>  → OPEN (check-in) </p>
+<p>  → IN_PROGRESS (during stay) </p>
+<p>  → CLOSED (checkout)</p>
+<p><strong>Effort:</strong> 3-4 hours</p>
+<p>---</p>
+<h3>Tier 2: Feature Enhancements (1-2 week sprint)</h3>
+<h4>2.1 Multi-Currency Support</h4>
+<li>Add currency conversion service</li>
+<li>Store exchange rates with daily snapshot</li>
+<li>Convert charges to hotel currency at folio creation</li>
+<li>Display both guest currency and hotel currency</li>
+<p><strong>Effort:</strong> 6-8 hours</p>
+<p>---</p>
+<h4>2.2 Multi-Tax Support</h4>
+<p><strong>Change:</strong> Allow multiple tax types per folio</p>
+<p>// Current (wrong):</p>
+<p>// Unique: [folio, type=TAX_GST]  // Only 1 tax allowed</p>
+<p>// Optimized:</p>
+<p>// Unique: [folio, taxType, taxRate]  // Multiple tax lines</p>
+<p>// Types: TAX_GST, TAX_VAT, TAX_LOCAL, TAX_SERVICE</p>
+<p>const taxes = [</p>
+<p>  { type: 'TAX_GST', rate: 0.07, amount: 35.00 },  // India GST</p>
+<p>  { type: 'TAX_LOCAL', rate: 0.02, amount: 10.00 } // City tax</p>
+<p>]</p>
+<p><strong>Effort:</strong> 4-5 hours</p>
+<p>---</p>
+<h4>2.3 Room Move with Billing</h4>
+<li>Track room changes per reservation</li>
+<li>Create adjustment line items</li>
+<li>Recalculate charges based on new room rate</li>
+<li>Update housekeeping tasks</li>
+<p><strong>Effort:</strong> 5-6 hours</p>
+<p>---</p>
+<h4>2.4 Event-Driven Charge Integration</h4>
+<li>Allow other modules (Restaurant, Spa, Laundry) to emit `charge.created` events</li>
+<li>Subscribe in FoliosService</li>
+<li>Auto-add line items with source module reference</li>
+<p><strong>Effort:</strong> 4-5 hours</p>
+<p>---</p>
+<h3>Tier 3: Advanced Features (Strategic)</h3>
+<h4>3.1 Pre-Arrival Billing Phase</h4>
+<li>Pre-charge for advance bookings</li>
+<li>Rate lock confirmation</li>
+<li>Payment pre-authorization</li>
+<li>Deposit collection ahead of arrival</li>
+<p><strong>Effort:</strong> 10-12 hours</p>
+<p>---</p>
+<h4>3.2 Rate Caching & Performance</h4>
+<li>Redis caching layer for RatePlans + RMS rates</li>
+<li>24-hour TTL with invalidation on updates</li>
+<li>Query optimization (N+1 query elimination)</li>
+<p><strong>Effort:</strong> 6-8 hours</p>
+<p>---</p>
+<h4>3.3 Partial Checkout & Billing Adjustments</h4>
+<li>Support early departure</li>
+<li>Mid-stay rate changes</li>
+<li>Overbooking recovery (move guest + price adjustment)</li>
+<li>Proration logic</li>
+<p><strong>Effort:</strong> 8-10 hours</p>
+<p>---</p>
+<h4>3.4 Advanced Availability Management</h4>
+<li>Reservation holds with expiry</li>
+<li>Real-time race condition handling (pessimistic locking)</li>
+<li>Overbooking prevention</li>
+<li>Channel inventory sync</li>
+<p><strong>Effort:</strong> 12-15 hours</p>
+<p>---</p>
+<p>---</p>
+<h2>6. IMPLEMENTATION PRIORITY MATRIX</h2>
+<p>---</p>
+<h2>7. DEPENDENCY GRAPH</h2>
+<p>┌─────────────────────────────────────────────┐</p>
+<p>│ FIX 1: Dynamic Pricing                      │</p>
+<p>│ (Must complete first - affects all billing) │</p>
+<p>└────────────────────────┬────────────────────┘</p>
+<p>                         │</p>
+<p>        ┌────────────────┴─────────────────┐</p>
+<p>        ↓                                  ↓</p>
+<p>┌─────────────────┐          ┌──────────────────────┐</p>
+<p>│ FIX 2: Nightly  │          │ FIX 3: Auto-Confirm  │</p>
+<p>│ Charges (depends│          │ (Independent)        │</p>
+<p>│ on Fix 1)       │          └──────────────────────┘</p>
+<p>└────────┬────────┘                      ↓</p>
+<p>         │                    ┌──────────────────────┐</p>
+<p>         │                    │ FIX 4: Folio Create  │</p>
+<p>         │                    │ (Depends on Fix 3)   │</p>
+<p>         │                    └────────┬─────────────┘</p>
+<p>         │                             │</p>
+<p>         └────────────┬────────────────┘</p>
+<p>                      ↓</p>
+<p>        ┌─────────────────────────────┐</p>
+<p>        │ TIER 2: Enhancements        │</p>
+<p>        │ (Can run in parallel)       │</p>
+<p>        │ - Multi-Tax, Currency       │</p>
+<p>        │ - Event-Driven Integration  │</p>
+<p>        │ - Room Move Billing         │</p>
+<p>        └─────────────────────────────┘</p>
+<p>                      │</p>
+<p>                      ↓</p>
+<p>        ┌─────────────────────────────┐</p>
+<p>        │ TIER 3: Advanced Features   │</p>
+<p>        │ (Month 2 onwards)           │</p>
+<p>        └─────────────────────────────┘</p>
+<p>---</p>
+<h2>8. ARCHITECTURAL RECOMMENDATIONS</h2>
+<h3>8.1 Event-Driven Architecture</h3>
+<p>Implement event emitters for key PMS transitions:</p>
+<p>// Emit events at critical points</p>
+<p>@EventEmitter()</p>
+<p>class ReservationService {</p>
+<p>  async createReservation(...) {</p>
+<p>    const res = new Reservation(...);</p>
+<p>    this.eventEmitter.emit('reservation.created', res);</p>
+<p>    return res;</p>
+<p>  }</p>
+<p>  async confirmReservation(id: string) {</p>
+<p>    const res = await this.update(id, { status: CONFIRMED });</p>
+<p>    this.eventEmitter.emit('reservation.confirmed', res);</p>
+<p>    return res;</p>
+<p>  }</p>
+<p>  async checkIn(id: string) {</p>
+<p>    const res = await this.update(id, { status: CHECKED_IN });</p>
+<p>    this.eventEmitter.emit('guest.arrived', res);</p>
+<p>    return res;</p>
+<p>  }</p>
+<p>}</p>
+<p>// Other modules listen</p>
+<p>@Injectable()</p>
+<p>class HousekeepingListener {</p>
+<p>  @OnEvent('guest.arrived')</p>
+<p>  async onGuestArrived(reservation: Reservation) {</p>
+<p>    await this.createWelcomeTask(reservation.room);</p>
+<p>  }</p>
+<p>}</p>
+<p>@Injectable()</p>
+<p>class BillingListener {</p>
+<p>  @OnEvent('reservation.confirmed')</p>
+<p>  async onConfirmed(reservation: Reservation) {</p>
+<p>    const folio = await this.createFolio(reservation);</p>
+<p>    await this.notifyEstimate(folio);</p>
+<p>  }</p>
+<p>}</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Loose coupling between modules</li>
+<li>✓ Easy to add new listeners (e.g., notifications, analytics)</li>
+<li>✓ Testable in isolation</li>
+<p>---</p>
+<h3>8.2 Service Segregation</h3>
+<p>Split <code>FoliosService</code> into specialized services:</p>
+<p>// folios.service.ts — Core folio management</p>
+<p>FoliosService {</p>
+<p>  createFolio(reservationId)</p>
+<p>  closeFolio(folioId)</p>
+<p>  getFolio(folioId)</p>
+<p>}</p>
+<p>// folio-charges.service.ts — Charge posting</p>
+<p>FolioChargesService {</p>
+<p>  addLineItem(folioId, type, amount)</p>
+<p>  addRoomCharge(folioId, nightCharge)</p>
+<p>  applyTax(folioId, rate, amount)</p>
+<p>}</p>
+<p>// folio-payments.service.ts — Payment posting</p>
+<p>FolioPaymentsService {</p>
+<p>  postPayment(folioId, method, amount)</p>
+<p>  reversePayment(folioId, paymentId)</p>
+<p>  getBalance(folioId)</p>
+<p>}</p>
+<p>// folio-summary.service.ts — Reporting</p>
+<p>FolioSummaryService {</p>
+<p>  getStatement(folioId)</p>
+<p>  calculateTotalDue(folioId)</p>
+<p>  getDailyBreakdown(folioId)</p>
+<p>}</p>
+<p><strong>Benefits:</strong></p>
+<li>✓ Single responsibility</li>
+<li>✓ Easier to test each concern</li>
+<li>✓ Better code organization</li>
+<p>---</p>
+<h3>8.3 Add Repository Pattern for Complex Queries</h3>
+<p>Create specialized repositories:</p>
+<p>@Injectable()</p>
+<p>class ReservationRepository {</p>
+<p>  findByRoomAndDateRange(roomId, checkIn, checkOut) {</p>
+<p>    // Complex overlapping date query</p>
+<p>  }</p>
+<p>  findActive(tenantId) {</p>
+<p>    // CHECKED_IN + PENDING_CONFIRMATION</p>
+<p>  }</p>
+<p>  findOverdue(tenantId) {</p>
+<p>    // Check-out date passed, still CHECKED_IN</p>
+<p>  }</p>
+<p>}</p>
+<p>@Injectable()</p>
+<p>class FolioRepository {</p>
+<p>  findByReservation(reservationId) {</p>
+<p>    // Including line items with one query</p>
+<p>  }</p>
+<p>  findUnpaid(tenantId) {</p>
+<p>    // Status = CLOSED and balance > 0</p>
+<p>  }</p>
+<p>}</p>
+<p>---</p>
+<h3>8.4 Billing State Machine</h3>
+<p>Implement explicit folio state transitions:</p>
+<p>        PREPARED (created at confirmation)</p>
+<p>            ↓</p>
+<p>          OPEN (guest checks in)</p>
+<p>            ↓</p>
+<p>      IN_PROGRESS (stays, charges accumulate)</p>
+<p>            ↓</p>
+<p>         CLOSED (checked out, no changes allowed)</p>
+<p>Invariants:</p>
+<li>Can only add charges to OPEN/IN_PROGRESS</li>
+<li>Can only post payments to OPEN/IN_PROGRESS/CLOSED</li>
+<li>Can only reverse payments if CLOSED and within 30 days</li>
+<p>---</p>
+<h2>9. TESTING RECOMMENDATIONS</h2>
+<h3>Unit Tests (Per Service)</h3>
+<li>RatePlan precedence (latest active)</li>
+<li>Nightly charge calculation</li>
+<li>Tax application</li>
+<li>Payment idempotency</li>
+<li>Folio balance calculation</li>
+<h3>Integration Tests (Cross-Module*</h3>
+<li>Reservation → Folio → Payment flow</li>
+<li>Rate pricing for 3-day stay</li>
+<li>Tax on total charges</li>
+<li>Room move with billing</li>
+<li>Early departure adjustment</li>
+<h3>E2E Tests (Customer Journeys)</h3>
+<li>Guest books → Confirms → Checks in → Charges accrue → Checks out → Pays</li>
+<li>Multi-night stay with rate changes</li>
+<li>International guest with currency conversion</li>
+<li>VIP guest with discount adjustment</li>
+<p>---</p>
+<h2>10. DEPLOYMENT CHECKLIST</h2>
+<h3>Pre-Deployment</h3>
+<li>[ ] All Tier 1 fixes completed + tested</li>
+<li>[ ] Migration created for folio status changes</li>
+<li>[ ] RMS rate fallback logic verified</li>
+<li>[ ] Nightly job scheduled + tested</li>
+<li>[ ] Event listeners subscribed</li>
+<li>[ ] Database indexes optimized</li>
+<h3>Deployment</h3>
+<li>[ ] Run migrations (backward compatible)</li>
+<li>[ ] Deploy code with feature flags</li>
+<li>[ ] Enable nightly job on secondary DB</li>
+<li>[ ] Monitor folio creation time</li>
+<li>[ ] Verify charge calculations</li>
+<h3>Post-Deployment</h3>
+<li>[ ] Monitor checkout time (should not increase)</li>
+<li>[ ] Verify folio balance accuracy</li>
+<li>[ ] Check nightly charges posting correctly</li>
+<li>[ ] Validate payment reconciliation</li>
+<li>[ ] Gather feedback; iterate</li>
+<p>---</p>
+<h2>11. METRICS & MONITORING</h2>
+<h3>Key PDM (Product Delivery Metrics)</h3>
+<li>**Billing Accuracy Rate:** (Folios reconciled = Total folios) × 100</li>
+<li>**Checkout Time:** avg seconds for checkout process</li>
+<li>**Folio Creation Lag:** elapsed time from confirmation to folio ready</li>
+<li>**Charge Coverage:** (Folios with room charges) / (Folios checked out)</li>
+<h3>Alarms</h3>
+<li>⚠️ Nightly job failed (missing charges)</li>
+<li>⚠️ Checkout time > 10 seconds</li>
+<li>⚠️ Rate lookup fails (fallback used)</li>
+<li>⚠️ Folio reconciliation discrepancy > 1%</li>
+<p>---</p>
+<h2>12. SUMMARY</h2>
+<p><strong>Current State:</strong></p>
+<li>✓ Functional PMS with 13-module architecture</li>
+<li>⚠️ Critical billing gaps (dynamic pricing, daily charges)</li>
+<li>⚠️ Operational bottlenecks (manual confirmation, unclear folio lifecycle)</li>
+<p><strong>Recommended Action:</strong></p>
+<p>1. <strong>Immediately fix:</strong> Dynamic pricing, nightly charges, folio creation, auto-confirmation</p>
+<p>2. <strong>Short-term enhance:</strong> Tax/currency support, event-driven integration</p>
+<p>3. <strong>Long-term scale:</strong> Pre-arrival billing, advanced availability, caching</p>
+<p><strong>Estimated Effort:</strong></p>
+<li>Tier 1: 10-15 hours (1-2 days)</li>
+<li>Tier 2: 25-30 hours (3-4 days)</li>
+<li>Tier 3: 40-50 hours (5-7 days)</li>
+<li>**Total:** 75-95 hours (~2 weeks for a small team)</li>
+<p><strong>ROI:</strong></p>
+<li>✓ Eliminate revenue leakage (dynamic pricing)</li>
+<li>✓ Reduce operational overhead (auto-confirmation, nightly charges)</li>
+<li>✓ Improve guest experience (interim billing, accurate charges)</li>
+<li>✓ Scale international business (currency, multi-tax)</li>
+</div>
+
+<div class="container">
+    <h2>About This Document</h2>
+    <p><strong>Version:</strong> 1.0</p>
+    <p><strong>Last Updated:</strong> March 29, 2026</p>
+    <p><strong>Prepared For:</strong> Hospitality SaaS Development Team</p>
+    <p><strong>Format:</strong> HTML with Print-to-PDF Support</p>
+    <p><em>This document is optimized for PDF export. Use your browser's Print function (Ctrl+P / Cmd+P) and select "Save as PDF" to generate the final PDF file.</em></p>
+    <div class="page-number">End of Document</div>
+</div>
+
+<script>
+    // Auto-print message
+    window.addEventListener('load', function() {
+        // Optional: Uncomment to auto-open print dialog
+        // window.print();
+    });
+</script>
+</body>
+</html>

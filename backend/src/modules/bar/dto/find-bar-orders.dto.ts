@@ -8,7 +8,7 @@ import { BarOrderStatus } from '../enums/bar-order-status.enum';
 
 export class FindBarOrdersDto {
   @IsOptional()
-  @IsIn([BarOrderStatus.OPEN, BarOrderStatus.POSTED, BarOrderStatus.CANCELLED])
+  @IsIn([BarOrderStatus.OPEN, BarOrderStatus.POSTED, BarOrderStatus.CLOSED, BarOrderStatus.CANCELLED])
   status?: BarOrderStatus;
 
   @IsOptional()

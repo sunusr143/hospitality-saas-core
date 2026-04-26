@@ -9,6 +9,28 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+async function readErrorMessage(res: Response) {
+  const text = await res.text();
+
+  if (!text) {
+    return `Request failed with status ${res.status}`;
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(parsed.message)) {
+      return parsed.message.join(', ');
+    }
+    if (parsed.message) {
+      return parsed.message;
+    }
+  } catch {
+    // Fall back to the raw response text when it is not JSON.
+  }
+
+  return text;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -25,7 +47,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
-  if (res.status === 401) {
+  if (res.status === 401 && options.token) {
     localStorage.removeItem('hotel_session');
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.href = '/login';
@@ -34,8 +56,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed with status ${res.status}`);
+    throw new Error(await readErrorMessage(res));
   }
 
   if (res.status === 204) {
@@ -45,10 +66,47 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await res.json()) as T;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(tenantCode: string, email: string, password: string): Promise<LoginResponse> {
   return request<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { tenantCode, email, password },
+  });
+}
+
+export async function getSuperUserRecoveryQuestions(email: string) {
+  return request<{ questionOne: string; questionTwo: string }>('/auth/super-user/recovery/questions', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+export async function resetSuperUserPassword(body: {
+  email: string;
+  answerOne: string;
+  answerTwo: string;
+  recoveryKey: string;
+  newPassword: string;
+}) {
+  return request<{ success: boolean; message: string }>('/auth/super-user/recovery/reset', {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function configureSuperUserRecovery(
+  token: string,
+  body: {
+    questionOne: string;
+    answerOne: string;
+    questionTwo: string;
+    answerTwo: string;
+    recoveryKey: string;
+  },
+) {
+  return request<{ success: boolean; configuredAt: string }>('/auth/super-user/recovery/setup', {
+    method: 'POST',
+    token,
+    body,
   });
 }
 
@@ -203,7 +261,7 @@ export async function createUser(
     fullName: string;
     email: string;
     password: string;
-    role: 'ADMIN' | 'STAFF';
+    role: 'SUPER_USER' | 'ADMIN' | 'MANAGER' | 'STAFF';
     tenantCode: string;
     phone?: string;
     title?: string;
@@ -246,6 +304,7 @@ export async function getCurrentTenant(token: string) {
 export async function updateCurrentTenant(
   token: string,
   body: {
+    code?: string;
     name?: string;
     softwareName?: string;
     contactEmail?: string;
@@ -281,6 +340,11 @@ export async function checkOut(token: string, reservationId: string) {
     token,
     body: { reservationId },
   });
+}
+
+export async function getFrontdeskDashboard(token: string, date?: string) {
+  const suffix = date ? `?date=${encodeURIComponent(date)}` : '';
+  return request<any>(`/frontdesk/dashboard${suffix}`, { token });
 }
 
 export async function getFolioByReservation(token: string, reservationId: string) {
@@ -330,6 +394,42 @@ export async function getRestaurantCategories(token: string) {
   return request<any[]>('/restaurant/categories', { token });
 }
 
+export async function createRestaurantCategory(
+  token: string,
+  body: {
+    name: string;
+    description?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  },
+) {
+  return request<any>('/restaurant/categories', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export async function createRestaurantItem(
+  token: string,
+  body: {
+    categoryId: string;
+    name: string;
+    description?: string;
+    sku?: string;
+    price: number;
+    currency: string;
+    taxRate?: number;
+    isActive?: boolean;
+  },
+) {
+  return request<any>('/restaurant/items', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
 export async function getRestaurantOrders(token: string) {
   return request<any[]>('/restaurant/orders', { token });
 }
@@ -356,6 +456,13 @@ export async function postRestaurantOrder(token: string, orderId: string, folioI
     method: 'POST',
     token,
     body: { folioId },
+  });
+}
+
+export async function closeRestaurantOrder(token: string, orderId: string) {
+  return request<any>(`/restaurant/orders/${orderId}/close`, {
+    method: 'POST',
+    token,
   });
 }
 
@@ -402,6 +509,42 @@ export async function getBarCategories(token: string) {
   return request<any[]>('/bar/categories', { token });
 }
 
+export async function createBarCategory(
+  token: string,
+  body: {
+    name: string;
+    description?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+  },
+) {
+  return request<any>('/bar/categories', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
+export async function createBarItem(
+  token: string,
+  body: {
+    categoryId: string;
+    name: string;
+    description?: string;
+    sku?: string;
+    price: number;
+    currency: string;
+    taxRate?: number;
+    isActive?: boolean;
+  },
+) {
+  return request<any>('/bar/items', {
+    method: 'POST',
+    token,
+    body,
+  });
+}
+
 export async function getBarOrders(token: string) {
   return request<any[]>('/bar/orders', { token });
 }
@@ -428,6 +571,13 @@ export async function postBarOrder(token: string, orderId: string, folioId: stri
     method: 'POST',
     token,
     body: { folioId },
+  });
+}
+
+export async function closeBarOrder(token: string, orderId: string) {
+  return request<any>(`/bar/orders/${orderId}/close`, {
+    method: 'POST',
+    token,
   });
 }
 
@@ -472,7 +622,7 @@ export async function getHousekeepingTasks(token: string) {
 
 export async function createHousekeepingTask(
   token: string,
-  body: { roomId: string; priority?: 'LOW' | 'MEDIUM' | 'HIGH'; notes?: string },
+  body: { roomId: string; priority?: 'LOW' | 'NORMAL' | 'HIGH'; notes?: string },
 ) {
   return request<any>('/housekeeping', {
     method: 'POST',
@@ -613,11 +763,15 @@ export async function importRestaurantItems(
   token: string,
   file: File,
   defaultCurrency?: string,
+  outletLabel?: string,
 ) {
   const formData = new FormData();
   formData.append('file', file);
   if (defaultCurrency) {
     formData.append('defaultCurrency', defaultCurrency);
+  }
+  if (outletLabel) {
+    formData.append('outletLabel', outletLabel);
   }
 
   const res = await fetch(`${API_BASE}/restaurant/items/import`, {
@@ -637,8 +791,41 @@ export async function importRestaurantItems(
   }
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed with status ${res.status}`);
+    throw new Error(await readErrorMessage(res));
+  }
+
+  return res.json();
+}
+
+export async function importBarItems(
+  token: string,
+  file: File,
+  defaultCurrency?: string,
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (defaultCurrency) {
+    formData.append('defaultCurrency', defaultCurrency);
+  }
+
+  const res = await fetch(`${API_BASE}/bar/items/import`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('hotel_session');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
+    throw new Error('Session expired. Please sign in again.');
+  }
+
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res));
   }
 
   return res.json();

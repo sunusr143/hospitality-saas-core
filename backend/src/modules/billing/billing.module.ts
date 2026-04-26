@@ -19,6 +19,7 @@ import { User } from '../users/user.entity';
 import { RatePlansModule } from '../rate-plans/rate-plans.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AccountingModule } from '../accounting/accounting.module';
+import { RmsModule } from '../rms/rms.module';
 
 import { FoliosController } from './controllers/folios.controller';
 import { BillingSettingsController } from './controllers/billing-settings.controller';
@@ -37,9 +38,10 @@ import { BillingSettingsService } from './services/billing-settings.service';
       Room,
       User,
     ]),
-    RatePlansModule, // ✅ REQUIRED FOR RatePlansService DI
+    RatePlansModule,
     AuditLogsModule,
     AccountingModule,
+    RmsModule,
   ],
   controllers: [FoliosController, BillingSettingsController],
   providers: [FoliosService, BillingSettingsService],

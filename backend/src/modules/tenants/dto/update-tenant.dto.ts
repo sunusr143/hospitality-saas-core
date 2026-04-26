@@ -1,6 +1,14 @@
-import { ArrayNotEmpty, IsArray, IsOptional, IsString, Length } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class UpdateTenantDto {
+  @IsOptional()
+  @IsString()
+  @Length(3, 50)
+  @Matches(/^[A-Z0-9_]+$/, {
+    message: 'code must be uppercase letters, numbers, or underscores',
+  })
+  code?: string;
+
   @IsOptional()
   @IsString()
   @Length(3, 100)

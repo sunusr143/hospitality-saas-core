@@ -5,6 +5,10 @@ import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginDto {
   @IsNotEmpty()
+  @IsString()
+  tenantCode: string;
+
+  @IsNotEmpty()
   @IsEmail()
   email: string;
 

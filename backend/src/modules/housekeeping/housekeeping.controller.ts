@@ -48,8 +48,9 @@ export class HousekeepingController {
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateHousekeepingStatusDto,
+    @Request() req,
   ) {
-    return this.housekeepingService.updateStatus(id, dto);
+    return this.housekeepingService.updateStatus(req.user.tenantId, id, dto);
   }
 
   @Patch(':id/assign')

@@ -13,8 +13,11 @@ import {
   Post,
   Query,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { BarService } from './bar.service';
 import { CreateBarCategoryDto } from './dto/create-bar-category.dto';
@@ -28,6 +31,7 @@ import { CancelBarOrderDto } from './dto/cancel-bar-order.dto';
 import { SeedBarDto } from './dto/seed-bar.dto';
 import { FindBarOrdersDto } from './dto/find-bar-orders.dto';
 import { FindBarItemsDto } from './dto/find-bar-items.dto';
+import { ImportBarItemsDto } from './dto/import-bar-items.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -47,7 +51,7 @@ export class BarController {
    * ADMIN — create category
    */
   @Post('categories')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async createCategory(@Body() dto: CreateBarCategoryDto, @Request() req) {
     return this.barService.createCategory(req.user.tenantId, dto);
   }
@@ -56,7 +60,7 @@ export class BarController {
    * ADMIN — update category
    */
   @Patch('categories/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updateCategory(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBarCategoryDto,
@@ -69,7 +73,7 @@ export class BarController {
    * ADMIN + STAFF — list categories
    */
   @Get('categories')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async listCategories(@Request() req) {
     return this.barService.listCategories(req.user.tenantId);
   }
@@ -78,16 +82,31 @@ export class BarController {
    * ADMIN — create item
    */
   @Post('items')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async createItem(@Body() dto: CreateBarItemDto, @Request() req) {
     return this.barService.createItem(req.user.tenantId, dto);
+  }
+
+  @Post('items/import')
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @UseInterceptors(FileInterceptor('file'))
+  async importItems(
+    @UploadedFile() file: any,
+    @Body() dto: ImportBarItemsDto,
+    @Request() req,
+  ) {
+    return this.barService.importItemsFromCsv({
+      tenantId: req.user.tenantId,
+      file,
+      dto,
+    });
   }
 
   /**
    * ADMIN — update item
    */
   @Patch('items/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBarItemDto,
@@ -100,7 +119,7 @@ export class BarController {
    * ADMIN + STAFF — list items
    */
   @Get('items')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async listItems(@Query() query: FindBarItemsDto, @Request() req) {
     return this.barService.listItems(req.user.tenantId, query);
   }
@@ -167,6 +186,18 @@ export class BarController {
       tenantId: req.user.tenantId,
       orderId: id,
       folioId: dto.folioId,
+    });
+  }
+
+  @Post('orders/:id/close')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async closeOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req,
+  ) {
+    return this.barService.closeOrder({
+      tenantId: req.user.tenantId,
+      orderId: id,
     });
   }
 

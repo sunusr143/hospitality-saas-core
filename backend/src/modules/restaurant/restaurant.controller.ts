@@ -44,13 +44,13 @@ export class RestaurantController {
   constructor(private readonly restaurantService: RestaurantService) {}
 
   @Post('categories')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async createCategory(@Body() dto: CreateRestaurantCategoryDto, @Request() req) {
     return this.restaurantService.createCategory(req.user.tenantId, dto);
   }
 
   @Patch('categories/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updateCategory(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRestaurantCategoryDto,
@@ -60,19 +60,19 @@ export class RestaurantController {
   }
 
   @Get('categories')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async listCategories(@Request() req) {
     return this.restaurantService.listCategories(req.user.tenantId);
   }
 
   @Post('items')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async createItem(@Body() dto: CreateRestaurantItemDto, @Request() req) {
     return this.restaurantService.createItem(req.user.tenantId, dto);
   }
 
   @Post('items/import')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @UseInterceptors(FileInterceptor('file'))
   async importItems(
     @UploadedFile() file: any,
@@ -87,7 +87,7 @@ export class RestaurantController {
   }
 
   @Patch('items/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   async updateItem(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRestaurantItemDto,
@@ -97,7 +97,7 @@ export class RestaurantController {
   }
 
   @Get('items')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER, UserRole.STAFF)
   async listItems(@Request() req) {
     return this.restaurantService.listItems(req.user.tenantId);
   }
@@ -152,6 +152,18 @@ export class RestaurantController {
       tenantId: req.user.tenantId,
       orderId: id,
       folioId: dto.folioId,
+    });
+  }
+
+  @Post('orders/:id/close')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async closeOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req,
+  ) {
+    return this.restaurantService.closeOrder({
+      tenantId: req.user.tenantId,
+      orderId: id,
     });
   }
 

@@ -1,0 +1,107 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Rotate 0 >>
+endobj
+4 0 obj
+<< /Font << /F1 6 0 R >> >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 2009 >>
+stream
+BT
+/F1 28 Tf
+50 750 Td
+(PMS Flow Analysis & Optimization Guide) Tj
+0 -40 Td
+/F1 14 Tf
+(Property Management System Architecture Review) Tj
+0 -30 Td
+/F1 11 Tf
+(Current State Analysis and Comprehensive Optimization Strategy) Tj
+0 -50 Td
+/F1 11 Tf
+(Date: March 29, 2026) Tj
+0 -20 Td
+(Repository: hospitality-saas-core) Tj
+0 -20 Td  
+(Branch: feat-full-billing-and--other-modules-with-dynamic-room-charges) Tj
+0 -50 Td
+/F1 13 Tf
+(Executive Summary) Tj
+0 -25 Td
+/F1 10 Tf
+(This comprehensive analysis documents the Property Management System architecture,) Tj
+0 -15 Td
+(identifies 12 critical and medium-priority issues, and provides a detailed optimization) Tj
+0 -15 Td
+(strategy with implementation roadmap.) Tj
+0 -30 Td
+/F1 12 Tf
+(Key Findings:) Tj
+0 -20 Td
+/F1 10 Tf
+(• 13 Core Integrated Modules in Multi-Tenant Architecture) Tj
+0 -15 Td
+(• Critical Billing Issues: Dynamic Pricing Gap, Missing Nightly Charges) Tj
+0 -15 Td
+(• Operational Bottleneck: Manual Confirmation Requirement) Tj
+0 -15 Td
+(• Revenue Impact: Potential billing discrepancies and revenue leakage) Tj
+0 -15 Td
+(• Optimization Timeline: 10-15 hours for Tier 1, Total 2 weeks for comprehensive fix) Tj
+0 -30 Td
+/F1 12 Tf
+(Document Contents:) Tj
+0 -20 Td
+/F1 10 Tf
+(1. Current PMS State Architecture - 13 Module Overview) Tj
+0 -15 Td
+(2. Detailed Reservation Lifecycle - 7 Phase Flow Analysis) Tj
+0 -15 Td
+(3. Data Entities & Relationships - Database Schema) Tj
+0 -15 Td
+(4. Identified Issues - 12 Issues Prioritized (High/Medium/Low)) Tj
+0 -15 Td
+(5. Optimization Strategy - Tier 1/2/3 Improvements) Tj
+0 -15 Td
+(6. Implementation Priority Matrix & Timeline) Tj
+0 -15 Td
+(7. Architectural Recommendations) Tj
+0 -15 Td
+(8. Testing, Deployment, Monitoring Strategy) Tj
+0 -50 Td
+/F1 11 Tf
+(NOTE: See companion HTML file for complete document) Tj
+0 -20 Td
+/F1 10 Tf
+(File: PMS-FLOW-ANALYSIS.html) Tj  
+0 -15 Td
+(This PDF contains the summary. For the full technical analysis, open the) Tj
+0 -15 Td
+(accompanying HTML file in a web browser.) Tj
+ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000234 00000 n 
+0000000294 00000 n 
+0000000370 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+2413
+%%EOF

@@ -4,6 +4,7 @@
 import dataSource from '../database/data-source';
 import { Tenant } from '../modules/tenants/tenant.entity';
 import { Room } from '../modules/rooms/room.entity';
+import { User } from '../modules/users/user.entity';
 import { RateCalendar } from '../modules/rms/entities/rate-calendar.entity';
 import { Availability } from '../modules/rms/entities/availability.entity';
 import { Restriction } from '../modules/rms/entities/restriction.entity';
@@ -12,6 +13,13 @@ import { BarItem } from '../modules/bar/entities/bar-item.entity';
 import { RestaurantCategory } from '../modules/restaurant/entities/restaurant-category.entity';
 import { RestaurantItem } from '../modules/restaurant/entities/restaurant-item.entity';
 import { CorporateAccount } from '../modules/corporate/entities/corporate-account.entity';
+import { HousekeepingTask } from '../modules/housekeeping/entities/housekeeping-task.entity';
+import { HousekeepingStatus } from '../modules/housekeeping/enums/housekeeping-status.enum';
+import { HousekeepingPriority } from '../modules/housekeeping/enums/housekeeping-priority.enum';
+import { MaintenanceRequest } from '../modules/maintenance/entities/maintenance-request.entity';
+import { MaintenanceStatus } from '../modules/maintenance/enums/maintenance-status.enum';
+import { HousekeepingInspection } from '../modules/housekeeping/entities/housekeeping-inspection.entity';
+import { RoomStatus } from '../modules/rooms/enums/room-status.enum';
 
 const DAYS = 30;
 
@@ -30,6 +38,7 @@ async function seed() {
 
   const tenantRepo = dataSource.getRepository(Tenant);
   const roomRepo = dataSource.getRepository(Room);
+  const userRepo = dataSource.getRepository(User);
   const rateRepo = dataSource.getRepository(RateCalendar);
   const availabilityRepo = dataSource.getRepository(Availability);
   const restrictionRepo = dataSource.getRepository(Restriction);
@@ -38,6 +47,9 @@ async function seed() {
   const restaurantCategoryRepo = dataSource.getRepository(RestaurantCategory);
   const restaurantItemRepo = dataSource.getRepository(RestaurantItem);
   const corporateRepo = dataSource.getRepository(CorporateAccount);
+  const housekeepingRepo = dataSource.getRepository(HousekeepingTask);
+  const maintenanceRepo = dataSource.getRepository(MaintenanceRequest);
+  const inspectionRepo = dataSource.getRepository(HousekeepingInspection);
 
   const tenants = await tenantRepo.find();
   const today = new Date();
@@ -233,7 +245,90 @@ async function seed() {
     }
   }
 
-  await dataSource.destroy();
+  // Housekeeping tasks and maintenance requests
+  for (const tenant of tenants) {
+    const rooms = await roomRepo.find({ where: { tenant: { id: tenant.id } } });
+    const staffUsers = await userRepo.find({ where: { tenant: { id: tenant.id } } });
+    const firstStaff = staffUsers.length > 0 ? staffUsers[0] : null;
+
+    if (rooms.length > 0 && firstStaff) {
+      // Create housekeeping tasks for occupied rooms
+      for (let i = 0; i < Math.min(3, rooms.length); i++) {
+        const room = rooms[i];
+        const existingTask = await housekeepingRepo.findOne({
+          where: { tenant: { id: tenant.id }, room: { id: room.id } },
+        });
+
+        if (!existingTask) {
+          await housekeepingRepo.save(
+            housekeepingRepo.create({
+              tenant,
+              room,
+              assignedTo: firstStaff,
+              priority: i === 0 ? HousekeepingPriority.HIGH : HousekeepingPriority.NORMAL,
+              notes: `Daily room cleaning for ${room.roomNumber}`,
+              status:
+                i === 0 ? HousekeepingStatus.ASSIGNED : HousekeepingStatus.PENDING,
+              dueAt: new Date(),
+            }),
+          );
+        }
+      }
+
+      // Create sample maintenance requests
+      if (rooms.length > 1 && rooms[0].status !== RoomStatus.MAINTENANCE) {
+        const maintenanceRoom = rooms[1];
+        const existingMaintenance = await maintenanceRepo.findOne({
+          where: {
+            tenant: { id: tenant.id },
+            room: { id: maintenanceRoom.id },
+            status: MaintenanceStatus.OPEN,
+          },
+        });
+
+        if (!existingMaintenance) {
+          await maintenanceRepo.save(
+            maintenanceRepo.create({
+              tenant,
+              room: maintenanceRoom,
+              reportedBy: firstStaff,
+              assignedTo: firstStaff,
+              title: 'Air Conditioning Unit Maintenance',
+              description: 'AC unit is not cooling properly. Needs inspection and repair.',
+              status: MaintenanceStatus.IN_PROGRESS,
+              resolvedAt: null,
+            }),
+          );
+        }
+      }
+
+      // Create sample housekeeping inspections (some passing, some failing)
+      if (rooms.length > 2) {
+        const inspectionRoom = rooms[2];
+
+        // Passing inspection
+        const existingPassInspection = await inspectionRepo.findOne({
+          where: {
+            tenant: { id: tenant.id },
+            room: { id: inspectionRoom.id },
+            passed: true,
+          },
+        });
+
+        if (!existingPassInspection) {
+          await inspectionRepo.save(
+            inspectionRepo.create({
+              tenant,
+              room: inspectionRoom,
+              inspector: firstStaff,
+              passed: true,
+              notes: 'Room is clean and ready for guests.',
+            }),
+          );
+        }
+      }
+    }
+  }
 }
 
 seed().catch(async (error) => {
